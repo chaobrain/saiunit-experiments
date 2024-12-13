@@ -35,11 +35,10 @@ pip install -r requirements.txt
 └── requirements.txt
 ```
 
-- `01-hh-neurons/`: Contains experiments related to Hodgkin-Huxley neurons.
+- `01-hh-neurons/`: Contains experiments related to simulating Hodgkin-Huxley-styled TRN neurons.
 - `02-mutiscale-network/`: Contains results related to multiscale network experiments.
 - `03-hh-fitting/`: Contains experiments related to fitting Hodgkin-Huxley models.
-- `04-task-training/`: Contains the main training script and results.
-- `archive/`: Directory for archived files.
+- `04-task-training/`: Contains the main training script and results for training evidence accumulation tasks.
 - `.gitignore`: Specifies files and directories to be ignored by Git.
 - `README.md`: This file.
 - `requirements.txt`: Lists the dependencies required for the project.

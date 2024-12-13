@@ -3,3 +3,4 @@ dendritex
 braintools
 brainunit
 brainpy
+matplotlib
