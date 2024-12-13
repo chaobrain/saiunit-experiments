@@ -188,5 +188,5 @@ def try_large_scale_system_v2():
 
 
 if __name__ == '__main__':
-  # try_large_scale_system()
-  try_large_scale_system_v2()
+  try_large_scale_system()
+  # try_large_scale_system_v2()
