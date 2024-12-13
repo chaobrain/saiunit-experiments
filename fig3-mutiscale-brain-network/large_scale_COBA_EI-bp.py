@@ -143,8 +143,8 @@ def try_large_scale_system():
   model = _create_model(np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]))
 
   t0 = time.time()
-  # v1_inputs = bp.inputs.section_input([0., 10., 0.], [200., 100., 500.])
-  v1_inputs = bp.inputs.section_input([0., ], [100.])
+  v1_inputs = bp.inputs.section_input([0., 10., 0.], [200., 100., 500.])
+  # v1_inputs = bp.inputs.section_input([0., ], [100.])
   bg_inputs = np.ones(v1_inputs.shape) * 10.5
   run_indices = np.arange(v1_inputs.size)
   outs = bm.for_loop(model.step_run, (run_indices, bg_inputs, v1_inputs), progress_bar=True, jit=True)

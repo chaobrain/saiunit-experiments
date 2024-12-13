@@ -87,61 +87,27 @@ class LifRefLTC(bst.nn.Neuron):
         self.t_last_spike.value = t_last_spike
         return spike
 
-
-class Expon(bst.nn.Synapse, bst.mixin.AlignPost):
+class EventJITCLinear(bst.nn.Module):
     def __init__(
         self,
-        size: bst.typing.Size,
-        name: Optional[str] = None,
-        tau: bst.typing.ArrayLike = 8.0 * u.ms,
-    ):
-        super().__init__(name=name, in_size=size)
-        self.tau = bst.init.param(tau, self.varshape)
-
-    def init_state(self, batch_size: int = None, **kwargs):
-        self.g = bst.ShortTermState(
-            bst.init.param(bst.init.Constant(0. * u.siemens),
-                           self.varshape,
-                           batch_size)
-        )
-
-    def reset_state(self, batch_size: int = None, **kwargs):
-        self.g.value = bst.init.param(
-            bst.init.Constant(0. * u.siemens), self.varshape, batch_size
-        )
-
-    def update(self, x=None):
-        self.g.value = self.g.value - self.g.value / self.tau * bst.environ.get_dt()
-        if x is not None:
-            self.align_post_input_add(x)
-        return self.g.value
-
-    def align_post_input_add(self, x):
-        self.g.value += x
-
-
-class EventCSRLinear(bst.nn.Module):
-    def __init__(
-        self,
-        weight,
-        prob: float,
         n_pre: int,
         n_post: int,
+        prob: float,
+        weight,
         seed: int = None,
         name: Optional[str] = None,
     ):
         super().__init__(name=name)
 
-        self.weight = weight
-        self.n_pre = n_pre
-        self.n_post = n_post
+        self.in_size = n_pre
+        self.out_size = n_post
         self.prob = prob
-        self.n_conn = int(prob * n_post)
+        self.n_conn = int(prob * self.out_size[-1])
         self.seed = np.random.randint(0, int(1e8)) if seed is None else seed
 
-        self.indptr = u.math.arange(n_pre + 1) * self.n_conn
-        self.indices = bst.random.randint(0, n_post, (self.n_pre, self.n_conn))
-        self.weight = bst.init.param(weight, (self.n_pre * self.n_conn))
+        self.indptr = u.math.arange(self.in_size[-1] + 1) * self.n_conn
+        self.indices = bst.random.randint(0, self.out_size[-1], (self.in_size[-1], self.n_conn))
+        self.weight = bst.init.param(weight, (self.in_size[-1] * self.n_conn))
 
     def update(self, x):
         unit = None
@@ -151,8 +117,9 @@ class EventCSRLinear(bst.nn.Module):
         else:
             w = self.weight
         r = braintaichi.jitc_event_mv_prob_homo(
+        # r = bm.jitconn.event_mv_prob_homo(
             x, w, self.prob, self.seed,
-            shape=(self.n_pre, self.n_post),
+            shape=(self.in_size[-1], self.out_size[-1]),
             transpose=True,
             outdim_parallel=False
         )
@@ -168,9 +135,10 @@ def pop_expon_syn(pre, post, delay, prob, g_max, tau):
             if delay is None else
             pre.prefetch('spike').delay.at(delay)
         ),
-        comm=EventCSRLinear(g_max, prob, pre.in_size[0], post.in_size[0]),
-        syn=Expon.desc(post.in_size[0], tau=tau),
-        out=bst.nn.CUBA.desc(),
+        comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
+        # comm=EventJITCLinear(pre.in_size, post.in_size, prob, g_max),
+        syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit(unit=u.siemens)),
+        out=bst.nn.CUBA.desc(scale=u.mV),
         post=post
     )
 
@@ -180,8 +148,11 @@ def area_expon_syns(pre, post, delay, prob, gEE=0.03 * u.siemens, tau=5. * u.ms)
 
 
 class EINet(bst.nn.Module):
-    def __init__(self, num_E, num_I, gEE=0.03 * u.siemens, gEI=0.03 * u.siemens,
-                 gIE=0.335 * u.siemens, gII=0.335 * u.siemens, p=0.2):
+    def __init__(
+        self, num_E, num_I,
+        gEE=0.03 * u.siemens, gEI=0.03 * u.siemens,
+        gIE=0.335 * u.siemens, gII=0.335 * u.siemens, p=0.2
+    ):
         super().__init__()
         self.E = LifRefLTC(
             num_E,
@@ -189,11 +160,12 @@ class EINet(bst.nn.Module):
             V_rest=-60. * u.mV, V_th=-50. * u.mV, V_reset=-60. * u.mV,
             V_initializer=bst.init.Normal(-55. * u.mV, 2. * u.mV)
         )
-        self.I = LifRefLTC(num_I,
-                           tau_ref=5. * u.ms, tau=20. * u.ms,
-                           V_rest=-60. * u.mV, V_th=-50. * u.mV, V_reset=-60. * u.mV,
-                           V_initializer=bst.init.Normal(-55. * u.mV, 2. * u.mV)
-                           )
+        self.I = LifRefLTC(
+            num_I,
+            tau_ref=5. * u.ms, tau=20. * u.ms,
+            V_rest=-60. * u.mV, V_th=-50. * u.mV, V_reset=-60. * u.mV,
+            V_initializer=bst.init.Normal(-55. * u.mV, 2. * u.mV)
+        )
         self.E2E = pop_expon_syn(self.E, self.E, None, prob=p, g_max=gEE, tau=5. * u.ms)
         self.E2I = pop_expon_syn(self.E, self.I, None, prob=p, g_max=gEI, tau=5. * u.ms)
         self.I2E = pop_expon_syn(self.I, self.E, None, prob=p, g_max=gIE, tau=10. * u.ms)
@@ -304,21 +276,23 @@ def try_large_scale_system():
     g_max = np.asarray([0.10108301, 0.60604239, -0.645, -0.33540355, 0.08]) * u.siemens
     g_max = np.asarray([0.10108301, 0.60604239, -0.63, -0.33540355, 0.08]) * u.siemens
     # g_max = np.asarray([0.10108301, 0.60604239, -0.635, -0.33540355, 0.08]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.638, -0.33540355, 0.08]) * u.siemens
+    # g_max = np.asarray([0.10108301, 0.60604239, -0.638, -0.33540355, 0.08]) * u.siemens
 
-    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]) * u.siemens
+    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]) * u.siemens
     model = _create_model(g_max)
 
     # run the model
     t0 = time.time()
     duration = 100.
     duration = 70.
-    v1_inputs = braintools.input.section_input([0. * u.mA, 10. * u.mA, 0. * u.mA],
-                                               [200. * u.ms, duration * u.ms, 500. * u.ms])
+    v1_inputs = braintools.input.section_input(
+        [0. * u.mA, 10. * u.mA, 0. * u.mA],
+        [200. * u.ms, duration * u.ms, 500. * u.ms]
+    )
     bg_inputs = u.math.ones_like(v1_inputs) * 10.5
     run_indices = np.arange(v1_inputs.size)
     outs = bst.compile.for_loop(model.step_run, run_indices, bg_inputs, v1_inputs,
-                                pbar=bst.compile.ProgressBar(500))
+                                pbar=bst.compile.ProgressBar(100))
     t1 = time.time()
     print(f'Time cost: {t1 - t0:.2f}s')
 
