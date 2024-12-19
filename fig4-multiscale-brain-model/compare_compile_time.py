@@ -16,7 +16,7 @@ import os
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
-
+#
 import jax
 
 jax.config.update('jax_platform_name', 'cpu')
@@ -54,7 +54,7 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
     def run_with_unit():
         bst.nn.reset_all_states(model_with_unit)
         with bst.environ.context(dt=0.1 * u.ms):
-            bst.compile.for_loop(model_with_unit.step_run,
+            bst.compile.for_loop(model_with_unit.step_run2,
                                  run_indices,
                                  bg_inputs,
                                  v1_inputs)
@@ -64,7 +64,7 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
     def run_without_unit():
         bst.nn.reset_all_states(model_without_unit)
         with bst.environ.context(dt=0.1):
-            bst.compile.for_loop(model_without_unit.step_run,
+            bst.compile.for_loop(model_without_unit.step_run2,
                                  run_indices,
                                  u.get_mantissa(bg_inputs),
                                  u.get_mantissa(v1_inputs))
@@ -76,16 +76,18 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
         t0 = time.time()
         run_with_unit.compile()
         t1 = time.time()
-        jax.clear_caches()
         results.append([model_with_unit.num, 'with unit', t1 - t0])
         print(f"scale: {scale}, with unit: {t1 - t0} s")
 
         t0 = time.time()
         run_without_unit.compile()
         t1 = time.time()
-        jax.clear_caches()
         results.append([model_without_unit.num, 'without unit', t1 - t0])
         print(f"scale: {scale}, without unit: {t1 - t0} s")
+
+        run_with_unit.clear_cache()
+        run_without_unit.clear_cache()
+        jax.clear_caches()
 
     return results
 
@@ -94,6 +96,7 @@ def with_scales():
     heads = ['n', 'unit_or_not', 'time']
     results = []
     for scale in [1., 5., 10., 50., 100.]:
+    # for scale in [5., 10., 50., 100.]:
         results.extend(evaluate_compilation_times(scale=scale))
 
         platform = jax.default_backend()

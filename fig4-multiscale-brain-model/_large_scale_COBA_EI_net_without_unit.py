@@ -211,6 +211,11 @@ class VisualSystem(bst.nn.Module):
             return self.update(*args)
 
 
+    def step_run2(self, i, *args):
+        with bst.environ.context(i=i, t=i * bst.environ.get_dt()):
+            self.update(*args)
+
+
 def create_model(g_max, scale: float = 1.0):
     # fraction of labeled neurons
     flnMatp = braintools.file.load_matfile('../fig3-mutiscale-brain-network/Joglekar_2018_data/efelenMatpython.mat')

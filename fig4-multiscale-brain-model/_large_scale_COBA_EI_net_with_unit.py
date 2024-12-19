@@ -255,6 +255,10 @@ class VisualSystem(bst.nn.Module):
         with bst.environ.context(i=i, t=i * bst.environ.get_dt()):
             return self.update(*args)
 
+    def step_run2(self, i, *args):
+        with bst.environ.context(i=i, t=i * bst.environ.get_dt()):
+            self.update(*args)
+
 
 def create_model(g_max, scale: float = 1.0, mon_current: bool = False):
     with jax.ensure_compile_time_eval():

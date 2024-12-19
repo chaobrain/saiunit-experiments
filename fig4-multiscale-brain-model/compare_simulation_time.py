@@ -19,6 +19,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
 
 import jax
+
 jax.config.update('jax_platform_name', 'cpu')
 
 import braintools
@@ -51,25 +52,26 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
     def run_with_unit():
         bst.nn.reset_all_states(model_with_unit)
         with bst.environ.context(dt=0.1 * u.ms):
-            outs = bst.compile.for_loop(model_with_unit.step_run,
-                                        run_indices,
-                                        bg_inputs,
-                                        v1_inputs)
+            bst.compile.for_loop(model_with_unit.step_run2,
+                                 run_indices,
+                                 bg_inputs,
+                                 v1_inputs)
             return model_with_unit.areas['V1'].E.V.value[0]
 
     @bst.compile.jit
     def run_without_unit():
         bst.nn.reset_all_states(model_without_unit)
         with bst.environ.context(dt=0.1):
-            outs = bst.compile.for_loop(model_without_unit.step_run,
-                                        run_indices,
-                                        u.get_mantissa(bg_inputs),
-                                        u.get_mantissa(v1_inputs))
+            bst.compile.for_loop(model_without_unit.step_run2,
+                                 run_indices,
+                                 u.get_mantissa(bg_inputs),
+                                 u.get_mantissa(v1_inputs))
             return model_without_unit.areas[0].E.V.value[0]
 
     results = []
     jax.block_until_ready(run_with_unit())  # compile once
     jax.block_until_ready(run_without_unit())  # compile once
+
     for _ in range(n_run):
         t0 = time.time()
         jax.block_until_ready(run_with_unit())
