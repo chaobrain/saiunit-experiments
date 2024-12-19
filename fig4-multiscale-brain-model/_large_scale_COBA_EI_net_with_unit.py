@@ -34,16 +34,16 @@ num_inh = 800
 
 class LifRefLTC(bst.nn.Neuron):
     def __init__(
-        self,
-        size: bst.typing.Size,
-        name: Optional[str] = None,
-        V_rest: bst.typing.ArrayLike = 0. * u.mV,
-        V_reset: bst.typing.ArrayLike = -5. * u.mV,
-        V_th: bst.typing.ArrayLike = 20. * u.mV,
-        R: bst.typing.ArrayLike = 1. * u.ohm,
-        tau: bst.typing.ArrayLike = 10. * u.ms,
-        V_initializer: Callable = bst.init.Constant(0. * u.mV),
-        tau_ref: bst.typing.ArrayLike = 0. * u.ms,
+            self,
+            size: bst.typing.Size,
+            name: Optional[str] = None,
+            V_rest: bst.typing.ArrayLike = 0. * u.mV,
+            V_reset: bst.typing.ArrayLike = -5. * u.mV,
+            V_th: bst.typing.ArrayLike = 20. * u.mV,
+            R: bst.typing.ArrayLike = 1. * u.ohm,
+            tau: bst.typing.ArrayLike = 10. * u.ms,
+            V_initializer: Callable = bst.init.Constant(0. * u.mV),
+            tau_ref: bst.typing.ArrayLike = 0. * u.ms,
     ):
         # initialization
         super().__init__(size, name=name, )
@@ -108,15 +108,15 @@ def area_expon_syns(pre, post, delay, prob, gEE=0.03 * u.siemens, tau=5. * u.ms)
 
 class EINet(bst.nn.Module):
     def __init__(
-        self,
-        num_E,
-        num_I,
-        gEE=0.03 * u.siemens,
-        gEI=0.03 * u.siemens,
-        gIE=0.335 * u.siemens,
-        gII=0.335 * u.siemens,
-        p=0.2,
-        separate_ei: bool = False
+            self,
+            num_E,
+            num_I,
+            gEE=0.03 * u.siemens,
+            gEI=0.03 * u.siemens,
+            gIE=0.335 * u.siemens,
+            gII=0.335 * u.siemens,
+            p=0.2,
+            separate_ei: bool = False
     ):
         super().__init__()
         self.E = LifRefLTC(
@@ -181,20 +181,20 @@ class EINet(bst.nn.Module):
 
 class VisualSystem(bst.nn.Module):
     def __init__(
-        self,
-        ne: int,
-        ni: int,
-        scale: float,
-        conn_prob_mat: np.ndarray,
-        delay_mat: np.ndarray,
-        area_names: list[str],
-        p: float = 0.1,
-        gEE=0.03 * u.siemens,
-        gEI=0.03 * u.siemens,
-        gIE=0.335 * u.siemens,
-        gII=0.335 * u.siemens,
-        muEE=.0375 * u.siemens,
-        mon_current=False
+            self,
+            ne: int,
+            ni: int,
+            scale: float,
+            conn_prob_mat: np.ndarray,
+            delay_mat: np.ndarray,
+            area_names: list[str],
+            p: float = 0.1,
+            gEE=0.03 * u.siemens,
+            gEI=0.03 * u.siemens,
+            gIE=0.335 * u.siemens,
+            gII=0.335 * u.siemens,
+            muEE=.0375 * u.siemens,
+            mon_current=False
     ):
         super().__init__()
         num_area = conn_prob_mat.shape[0]
@@ -212,7 +212,7 @@ class VisualSystem(bst.nn.Module):
                 gEI=gEI,
                 gII=gII,
                 gIE=gIE,
-                p=p / scale,
+                p=p,
                 separate_ei=mon_current,
             )
 
@@ -221,12 +221,12 @@ class VisualSystem(bst.nn.Module):
         for i, pre in enumerate(area_names):
             for j, post in enumerate(area_names):
                 # if conn_prob_mat[j, i] / scale * self.areas[j].in_size[0] > 0:
-                if (conn_prob_mat[j, i] / scale * self.areas[post].E.in_size[0]) >= 1:
+                if (conn_prob_mat[j, i] * self.areas[post].E.in_size[0]) >= 1:
                     proj = area_expon_syns(
                         self.areas[pre],
                         self.areas[post],
                         delay_mat[j, i],
-                        conn_prob_mat[j, i] / scale,
+                        conn_prob_mat[j, i],
                         gEE=muEE,
                     )
                     self.projections[f'{pre}-to-{post}'] = proj
@@ -274,7 +274,7 @@ def create_model(g_max, scale: float = 1.0, mon_current: bool = False):
         delayMat = np.asarray(distMat / speed) * u.ms
 
     # construct the network model
-    print(g_max)
+    g_max = g_max / scale
     model = VisualSystem(
         num_exc,
         num_inh,
@@ -290,6 +290,4 @@ def create_model(g_max, scale: float = 1.0, mon_current: bool = False):
         p=0.1,
         mon_current=mon_current,
     )
-    bst.nn.init_all_states(model)
     return model
-

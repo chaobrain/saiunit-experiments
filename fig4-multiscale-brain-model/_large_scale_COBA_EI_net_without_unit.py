@@ -35,16 +35,16 @@ num_inh = 800
 
 class LifRefLTC(bst.nn.Neuron):
     def __init__(
-        self,
-        size: bst.typing.Size,
-        name: Optional[str] = None,
-        V_rest: bst.typing.ArrayLike = 0.,
-        V_reset: bst.typing.ArrayLike = -5.,
-        V_th: bst.typing.ArrayLike = 20.,
-        R: bst.typing.ArrayLike = 1.,
-        tau: bst.typing.ArrayLike = 10.,
-        V_initializer: Callable = bst.init.Constant(0.),
-        tau_ref: bst.typing.ArrayLike = 0.,
+            self,
+            size: bst.typing.Size,
+            name: Optional[str] = None,
+            V_rest: bst.typing.ArrayLike = 0.,
+            V_reset: bst.typing.ArrayLike = -5.,
+            V_th: bst.typing.ArrayLike = 20.,
+            R: bst.typing.ArrayLike = 1.,
+            tau: bst.typing.ArrayLike = 10.,
+            V_initializer: Callable = bst.init.Constant(0.),
+            tau_ref: bst.typing.ArrayLike = 0.,
     ):
         # initialization
         super().__init__(size, name=name, )
@@ -105,14 +105,14 @@ def area_expon_syns(pre, post, delay, prob, gEE=0.03, tau=5.):
 
 class EINet(bst.nn.Module):
     def __init__(
-        self,
-        num_E,
-        num_I,
-        gEE=0.03,
-        gEI=0.03,
-        gIE=0.335,
-        gII=0.335,
-        p=0.2
+            self,
+            num_E,
+            num_I,
+            gEE=0.03,
+            gEI=0.03,
+            gIE=0.335,
+            gII=0.335,
+            p=0.2
     ):
         super().__init__()
         self.E = LifRefLTC(
@@ -149,19 +149,19 @@ class EINet(bst.nn.Module):
 
 class VisualSystem(bst.nn.Module):
     def __init__(
-        self,
-        ne: int,
-        ni: int,
-        scale: float,
-        conn_prob_mat: np.ndarray,
-        delay_mat: np.ndarray,
-        area_names: list[str],
-        p: float = 0.1,
-        gEE=0.03,
-        gEI=0.03,
-        gIE=0.335,
-        gII=0.335,
-        muEE=.0375
+            self,
+            ne: int,
+            ni: int,
+            scale: float,
+            conn_prob_mat: np.ndarray,
+            delay_mat: np.ndarray,
+            area_names: list[str],
+            p: float = 0.1,
+            gEE=0.03,
+            gEI=0.03,
+            gIE=0.335,
+            gII=0.335,
+            muEE=.0375
     ):
         super().__init__()
         num_area = conn_prob_mat.shape[0]
@@ -174,20 +174,20 @@ class VisualSystem(bst.nn.Module):
         for i in range(num_area):
             # print(f'Building area {area_names[i]} ...')
             self.areas.append(
-                EINet(ne, ni, gEE=gEE, gEI=gEI, gII=gII, gIE=gIE, p=p / scale)
+                EINet(ne, ni, gEE=gEE, gEI=gEI, gII=gII, gIE=gIE, p=p)
             )
 
         # projections
         self.projections = []
         for i in range(num_area):
             for j in range(num_area):
-                if (conn_prob_mat[j, i] / scale * self.areas[j].E.in_size[0]) >= 1:
+                if (conn_prob_mat[j, i] * self.areas[j].E.in_size[0]) >= 1:
                     # print(f'Building projection from {area_names[i]} to {area_names[j]} ...')
                     proj = area_expon_syns(
                         self.areas[i],
                         self.areas[j],
                         delay_mat[j, i],
-                        conn_prob_mat[j, i] / scale,
+                        conn_prob_mat[j, i],
                         gEE=muEE
                     )
                     self.projections.append(proj)
@@ -210,7 +210,6 @@ class VisualSystem(bst.nn.Module):
         with bst.environ.context(i=i, t=i * bst.environ.get_dt()):
             return self.update(*args)
 
-
     def step_run2(self, i, *args):
         with bst.environ.context(i=i, t=i * bst.environ.get_dt()):
             self.update(*args)
@@ -229,6 +228,7 @@ def create_model(g_max, scale: float = 1.0):
 
     # construct the network model
     print(g_max)
+    g_max = g_max / scale
     model = VisualSystem(
         num_exc,
         num_inh,
@@ -243,6 +243,4 @@ def create_model(g_max, scale: float = 1.0):
         muEE=g_max[4],
         p=0.1,
     )
-    bst.nn.init_all_states(model)
     return model
-

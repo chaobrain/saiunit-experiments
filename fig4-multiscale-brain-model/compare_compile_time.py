@@ -34,9 +34,10 @@ from _large_scale_COBA_EI_net_without_unit import create_model as create_model_w
 
 
 def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
+    dt = 0.1 * u.ms
     g_max = np.asarray([0.10108301, 0.60604239, -0.65, -0.33540355, 0.06]) * u.siemens
 
-    with bst.environ.context(dt=0.1 * u.ms):
+    with bst.environ.context(dt=dt):
         model_with_unit = create_model_with_units(g_max, scale=scale)
 
         # run the model
@@ -47,13 +48,14 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
         bg_inputs = u.math.ones_like(v1_inputs) * 10.3
         run_indices = np.arange(v1_inputs.size)
 
-    with bst.environ.context(dt=0.1):
+    with bst.environ.context(dt=dt.mantissa):
         model_without_unit = create_model_without_units(g_max.mantissa, scale=scale)
 
     @bst.compile.jit
     def run_with_unit():
-        bst.nn.reset_all_states(model_with_unit)
-        with bst.environ.context(dt=0.1 * u.ms):
+        print('Compiling model with units ...')
+        with bst.environ.context(dt=dt):
+            bst.nn.init_all_states(model_with_unit)
             bst.compile.for_loop(model_with_unit.step_run2,
                                  run_indices,
                                  bg_inputs,
@@ -62,22 +64,18 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
 
     @bst.compile.jit
     def run_without_unit():
-        bst.nn.reset_all_states(model_without_unit)
-        with bst.environ.context(dt=0.1):
+        print('Compiling model without units ...')
+        with bst.environ.context(dt=dt.mantissa):
+            bst.nn.init_all_states(model_without_unit)
             bst.compile.for_loop(model_without_unit.step_run2,
                                  run_indices,
                                  u.get_mantissa(bg_inputs),
                                  u.get_mantissa(v1_inputs))
-            return model_without_unit.areas[0].E.V.value[0]
+        return model_without_unit.areas[0].E.V.value[0]
 
     results = []
 
     for _ in range(n_run):
-        t0 = time.time()
-        run_with_unit.compile()
-        t1 = time.time()
-        results.append([model_with_unit.num, 'with unit', t1 - t0])
-        print(f"scale: {scale}, with unit: {t1 - t0} s")
 
         t0 = time.time()
         run_without_unit.compile()
@@ -85,9 +83,18 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
         results.append([model_without_unit.num, 'without unit', t1 - t0])
         print(f"scale: {scale}, without unit: {t1 - t0} s")
 
+        t0 = time.time()
+        run_with_unit.compile()
+        t1 = time.time()
+        results.append([model_with_unit.num, 'with unit', t1 - t0])
+        print(f"scale: {scale}, with unit: {t1 - t0} s")
+        # jax.clear_caches()
+
         run_with_unit.clear_cache()
         run_without_unit.clear_cache()
         jax.clear_caches()
+
+        print()
 
     return results
 
@@ -95,9 +102,9 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
 def with_scales():
     heads = ['n', 'unit_or_not', 'time']
     results = []
-    for scale in [1., 5., 10., 50., 100.]:
-    # for scale in [5., 10., 50., 100.]:
-        results.extend(evaluate_compilation_times(scale=scale))
+    # for scale in [1., 5., 10., 50., 100.]:
+    for scale in [0.1, 0.2, 0.5, 1.0, 2.0]:
+        results.extend(evaluate_compilation_times(scale=scale, n_run=3))
 
         platform = jax.default_backend()
         pd.DataFrame(results, columns=heads).to_csv(f'results/{platform}_compile_time.csv', index=False)
