@@ -18,6 +18,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
 
 import jax
+
 jax.config.update('jax_platform_name', 'cpu')
 
 import braintools
@@ -49,41 +50,38 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
     with bst.environ.context(dt=0.1):
         model_without_unit = create_model_without_units(g_max.mantissa, scale=scale)
 
-    graph_def_with_units, treefy_states_with_units = bst.graph.flatten(model_with_unit)
-    graph_def_without_units, treefy_states_without_units = bst.graph.flatten(model_without_unit)
-
-    @jax.jit
-    def run_with_unit(treefy_states_):
+    @bst.compile.jit
+    def run_with_unit():
+        bst.nn.reset_all_states(model_with_unit)
         with bst.environ.context(dt=0.1 * u.ms):
-            model_ = bst.graph.unflatten(graph_def_with_units, treefy_states_)
-            outs = bst.compile.for_loop(model_.step_run, run_indices, bg_inputs, v1_inputs)
-            _, treefy_states_ = bst.graph.flatten(model_)
-            return outs, treefy_states_
+            bst.compile.for_loop(model_with_unit.step_run,
+                                 run_indices,
+                                 bg_inputs,
+                                 v1_inputs)
+        return model_with_unit.areas['V1'].E.V.value[0]
 
-    @jax.jit
-    def run_without_unit(treefy_states_):
+    @bst.compile.jit
+    def run_without_unit():
+        bst.nn.reset_all_states(model_without_unit)
         with bst.environ.context(dt=0.1):
-            model_ = bst.graph.unflatten(graph_def_without_units, treefy_states_)
-            outs = bst.compile.for_loop(model_.step_run,
-                                        run_indices,
-                                        u.get_mantissa(bg_inputs),
-                                        u.get_mantissa(v1_inputs))
-            _, treefy_states_ = bst.graph.flatten(model_)
-            return outs, treefy_states_
+            bst.compile.for_loop(model_without_unit.step_run,
+                                 run_indices,
+                                 u.get_mantissa(bg_inputs),
+                                 u.get_mantissa(v1_inputs))
+            return model_without_unit.areas[0].E.V.value[0]
 
     results = []
 
     for _ in range(n_run):
         t0 = time.time()
-        run_with_unit.lower(treefy_states_with_units).compile()
+        run_with_unit.compile()
         t1 = time.time()
         jax.clear_caches()
         results.append([model_with_unit.num, 'with unit', t1 - t0])
         print(f"scale: {scale}, with unit: {t1 - t0} s")
 
-    for _ in range(n_run):
         t0 = time.time()
-        run_without_unit.lower(treefy_states_without_units).compile()
+        run_without_unit.compile()
         t1 = time.time()
         jax.clear_caches()
         results.append([model_without_unit.num, 'without unit', t1 - t0])
