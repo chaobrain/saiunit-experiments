@@ -164,7 +164,7 @@ def visualize(voltages, gl, g_na, g_kd, C):
   plt.show()
 
 
-@bst.transform.jit
+@bst.compile.jit
 def simulate_model(gl, g_na, g_kd, C):
   current = inp_traces.T
   assert current.ndim == 2  # [T, B]
@@ -179,10 +179,10 @@ def simulate_model(gl, g_na, g_kd, C):
 
   indices = np.arange(current.shape[0])
   current = u.math.expand_dims(current, axis=-1)  # [T, B, 1]
-  return bst.transform.for_loop(step_fun, indices, current)  # (T, B)
+  return bst.compile.for_loop(step_fun, indices, current)  # (T, B)
 
 
-@bst.transform.jit
+@bst.compile.jit
 def compare_potentials(param):
   vs = simulate_model(param['gl'], param['g_na'], param['g_kd'], param['C'])  # (T, B)
   vs = vs.in_unit(target_vs.unit)

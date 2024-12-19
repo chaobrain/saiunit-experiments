@@ -17,7 +17,6 @@ import time
 from typing import Optional, Callable
 
 import brainstate as bst
-import braintaichi
 import braintools
 import brainunit as u
 import jax
@@ -39,13 +38,13 @@ class LifRefLTC(bst.nn.Neuron):
         self,
         size: bst.typing.Size,
         name: Optional[str] = None,
-        V_rest: bst.typing.ArrayLike = 0. * u.mV,
-        V_reset: bst.typing.ArrayLike = -5. * u.mV,
-        V_th: bst.typing.ArrayLike = 20. * u.mV,
-        R: bst.typing.ArrayLike = 1. * u.ohm,
-        tau: bst.typing.ArrayLike = 10. * u.ms,
-        V_initializer: Callable = bst.init.Constant(0. * u.mV),
-        tau_ref: bst.typing.ArrayLike = 0. * u.ms,
+        V_rest: bst.typing.ArrayLike = 0.,
+        V_reset: bst.typing.ArrayLike = -5.,
+        V_th: bst.typing.ArrayLike = 20.,
+        R: bst.typing.ArrayLike = 1.,
+        tau: bst.typing.ArrayLike = 10.,
+        V_initializer: Callable = bst.init.Constant(0.),
+        tau_ref: bst.typing.ArrayLike = 0.,
     ):
         # initialization
         super().__init__(size, name=name, )
@@ -64,11 +63,9 @@ class LifRefLTC(bst.nn.Neuron):
     def init_state(self, batch_size=None, **kwargs):
         self.V = bst.ShortTermState(bst.init.param(self._V_initializer, self.varshape, batch_size))
         self.spike = bst.ShortTermState(bst.init.param(u.math.zeros, self.varshape, batch_size))
-        self.t_last_spike = bst.ShortTermState(
-            bst.init.param(bst.init.Constant(-1e7 * u.ms), self.varshape, batch_size)
-        )
+        self.t_last_spike = bst.ShortTermState(bst.init.param(bst.init.Constant(-1e7), self.varshape, batch_size))
 
-    def update(self, x=0 * u.mA):
+    def update(self, x=0):
         # integrate membrane potential
         dv = lambda v: (-v + self.V_rest + self.R * self.sum_current_inputs(x, self.V.value)) / self.tau
         V = bst.nn.exp_euler_step(dv, self.V.value)
@@ -88,84 +85,58 @@ class LifRefLTC(bst.nn.Neuron):
         return spike
 
 
-class EventJITCLinear(bst.nn.Module):
-    def __init__(
-        self,
-        n_pre: int,
-        n_post: int,
-        prob: float,
-        weight,
-        seed: int = None,
-        name: Optional[str] = None,
-    ):
-        super().__init__(name=name)
-
-        self.in_size = n_pre
-        self.out_size = n_post
-        self.prob = prob
-        self.n_conn = int(prob * self.out_size[-1])
-        self.seed = np.random.randint(0, int(1e8)) if seed is None else seed
-
-        self.indptr = u.math.arange(self.in_size[-1] + 1) * self.n_conn
-        self.indices = bst.random.randint(0, self.out_size[-1], (self.in_size[-1], self.n_conn))
-        self.weight = bst.init.param(weight, (self.in_size[-1] * self.n_conn))
-
-    def update(self, x):
-        w, unit = u.split_mantissa_unit(self.weight)
-        r = braintaichi.jitc_event_mv_prob_homo(
-            x, w, self.prob, self.seed,
-            shape=(self.in_size[-1], self.out_size[-1]),
-            transpose=True,
-            outdim_parallel=False
-        )
-        return u.maybe_decimal(r * unit)
-
-
 def pop_expon_syn(pre, post, delay, prob, g_max, tau):
     return bst.nn.AlignPostProj(
         (
             pre.prefetch('spike')
-            if delay is None else
+            if (delay is None) or (delay < bst.environ.get_dt()) else
             pre.prefetch('spike').delay.at(delay)
         ),
-        comm=(
-            bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max)
-            # if post.in_size[-1] * prob >= 1 else
-            # EventJITCLinear(pre.in_size, post.in_size, prob, g_max)
-        ),
-        syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit(unit=u.siemens)),
-        out=bst.nn.CUBA.desc(scale=u.mV),
+        comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
+        syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit()),
+        out=bst.nn.CUBA.desc(scale=1.),
         post=post
     )
 
 
-def area_expon_syns(pre, post, delay, prob, gEE=0.03 * u.siemens, tau=5. * u.ms):
+def area_expon_syns(pre, post, delay, prob, gEE=0.03, tau=5.):
     return pop_expon_syn(pre.E, post.E, delay, prob, g_max=gEE, tau=tau)
 
 
 class EINet(bst.nn.Module):
     def __init__(
-        self, num_E, num_I,
-        gEE=0.03 * u.siemens, gEI=0.03 * u.siemens,
-        gIE=0.335 * u.siemens, gII=0.335 * u.siemens, p=0.2
+        self,
+        num_E,
+        num_I,
+        gEE=0.03,
+        gEI=0.03,
+        gIE=0.335,
+        gII=0.335,
+        p=0.2
     ):
         super().__init__()
         self.E = LifRefLTC(
             num_E,
-            tau_ref=5. * u.ms, tau=20. * u.ms,
-            V_rest=-60. * u.mV, V_th=-50. * u.mV, V_reset=-60. * u.mV,
-            V_initializer=bst.init.Normal(-55. * u.mV, 2. * u.mV)
+            tau_ref=5.,
+            tau=20.,
+            V_rest=-60.,
+            V_th=-50.,
+            V_reset=-60.,
+            V_initializer=bst.init.Normal(-55., 2.)
         )
         self.I = LifRefLTC(
             num_I,
-            tau_ref=5. * u.ms, tau=20. * u.ms,
-            V_rest=-60. * u.mV, V_th=-50. * u.mV, V_reset=-60. * u.mV,
-            V_initializer=bst.init.Normal(-55. * u.mV, 2. * u.mV)
+            tau_ref=5.,
+            tau=20.,
+            V_rest=-60.,
+            V_th=-50.,
+            V_reset=-60.,
+            V_initializer=bst.init.Normal(-55., 2.)
         )
-        self.E2E = pop_expon_syn(self.E, self.E, None, prob=p, g_max=gEE, tau=5. * u.ms)
-        self.E2I = pop_expon_syn(self.E, self.I, None, prob=p, g_max=gEI, tau=5. * u.ms)
-        self.I2E = pop_expon_syn(self.I, self.E, None, prob=p, g_max=gIE, tau=10. * u.ms)
-        self.I2I = pop_expon_syn(self.I, self.I, None, prob=p, g_max=gII, tau=10. * u.ms)
+        self.E2E = pop_expon_syn(self.E, self.E, None, prob=p, g_max=gEE, tau=5.)
+        self.E2I = pop_expon_syn(self.E, self.I, None, prob=p, g_max=gEI, tau=5.)
+        self.I2E = pop_expon_syn(self.I, self.E, None, prob=p, g_max=gIE, tau=10.)
+        self.I2I = pop_expon_syn(self.I, self.I, None, prob=p, g_max=gII, tau=10.)
 
     def update(self, E_bg, I_bg):
         self.E2E()
@@ -178,19 +149,32 @@ class EINet(bst.nn.Module):
 
 class VisualSystem(bst.nn.Module):
     def __init__(
-        self, ne, ni, conn_prob_mat, delay_mat, area_names, p=0.1,
-        gEE=0.03 * u.siemens, gEI=0.03 * u.siemens,
-        gIE=0.335 * u.siemens, gII=0.335 * u.siemens,
-        muEE=.0375 * u.siemens
+        self,
+        ne: int,
+        ni: int,
+        scale: float,
+        conn_prob_mat: np.ndarray,
+        delay_mat: np.ndarray,
+        area_names: list[str],
+        p: float = 0.1,
+        gEE=0.03,
+        gEI=0.03,
+        gIE=0.335,
+        gII=0.335,
+        muEE=.0375
     ):
         super().__init__()
         num_area = conn_prob_mat.shape[0]
+        ne = int(ne * scale)
+        ni = int(ni * scale)
 
         # brain areas
         self.areas = []
         for i in range(num_area):
             print(f'Building area {area_names[i]} ...')
-            self.areas.append(EINet(ne, ni, gEE=gEE, gEI=gEI, gII=gII, gIE=gIE, p=p))
+            self.areas.append(
+                EINet(ne, ni, gEE=gEE, gEI=gEI, gII=gII, gIE=gIE, p=p / scale)
+            )
 
         # projections
         self.projections = []
@@ -198,7 +182,13 @@ class VisualSystem(bst.nn.Module):
             for j in range(num_area):
                 if conn_prob_mat[j, i] > 0:
                     print(f'Building projection from {area_names[i]} to {area_names[j]} ...')
-                    proj = area_expon_syns(self.areas[i], self.areas[j], delay_mat[j, i], conn_prob_mat[j, i], gEE=muEE)
+                    proj = area_expon_syns(
+                        self.areas[i],
+                        self.areas[j],
+                        delay_mat[j, i],
+                        conn_prob_mat[j, i] / scale,
+                        gEE=muEE
+                    )
                     self.projections.append(proj)
 
     def update(self, bg, v1_bg):
@@ -239,7 +229,7 @@ def sps_show(area_names, sps, run_indices, num_exc, title):
     plt.title(title)
 
 
-def _create_model(g_max):
+def create_model(g_max, scale: float = 1.0):
     # fraction of labeled neurons
     flnMatp = braintools.file.load_matfile('Joglekar_2018_data/efelenMatpython.mat')
     conn = np.asarray(flnMatp['flnMatpython'].squeeze())  # fln values..Cij is strength from j to i
@@ -248,103 +238,117 @@ def _create_model(g_max):
     speed = 3.5  # axonal conduction velocity
     distMatp = braintools.file.load_matfile('Joglekar_2018_data/subgraphWiring29.mat')
     distMat = distMatp['wiring'].squeeze()  # distances between areas values..
-    delayMat = np.asarray(distMat / speed) * u.ms
+    delayMat = np.asarray(distMat / speed)
 
     # construct the network model
     print(g_max)
     model = VisualSystem(
-        num_exc, num_inh, area_names=area_names, conn_prob_mat=conn, delay_mat=delayMat,
-        gEE=g_max[0], gEI=g_max[1], gIE=g_max[2], gII=g_max[3], muEE=g_max[4], p=0.1,
+        num_exc,
+        num_inh,
+        scale,  # scale
+        area_names=area_names,
+        conn_prob_mat=conn,
+        delay_mat=delayMat,
+        gEE=g_max[0],
+        gEI=g_max[1],
+        gIE=g_max[2],
+        gII=g_max[3],
+        muEE=g_max[4],
+        p=0.1,
     )
     bst.nn.init_all_states(model)
     return model
 
 
-def try_large_scale_system():
-    bst.environ.set(dt=0.1 * u.ms)
+def try_large_scale_system(scale: float = 1.0):
+    bst.environ.set(dt=0.1)
 
-    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.08]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.06]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.07]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]) * u.siemens
-    # g_max = np.asarray([0.10108301, 0.60604239, -0.70977116, -0.33540355, 0.1]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.65, -0.33540355, 0.08]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.645, -0.33540355, 0.08]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.63, -0.33540355, 0.08]) * u.siemens
-    # g_max = np.asarray([0.10108301, 0.60604239, -0.635, -0.33540355, 0.08]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.638, -0.33540355, 0.06]) * u.siemens
-    g_max = np.asarray([0.10108301, 0.60604239, -0.645, -0.33540355, 0.06]) * u.siemens
+    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.08])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.06])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.07])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075])
+    # g_max = np.asarray([0.10108301, 0.60604239, -0.70977116, -0.33540355, 0.1]) 
+    g_max = np.asarray([0.10108301, 0.60604239, -0.65, -0.33540355, 0.08])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.645, -0.33540355, 0.08])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.63, -0.33540355, 0.08])
+    # g_max = np.asarray([0.10108301, 0.60604239, -0.635, -0.33540355, 0.08]) 
+    g_max = np.asarray([0.10108301, 0.60604239, -0.638, -0.33540355, 0.06])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.65, -0.33540355, 0.06])
 
-    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]) * u.siemens
-    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.065]) * u.siemens
-    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.06]) * u.siemens
-    model = _create_model(g_max)
+    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]) 
+    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.065]) 
+    # g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.06]) 
+    model = create_model(g_max)
 
     # run the model
     t0 = time.time()
-    duration = 100.
     duration = 50.
+    duration = 30.
+    duration = 40.
+    # duration = 25.
+    duration = 23.
+    print('without unit duration = ', duration)
     v1_inputs = braintools.input.section_input(
-        [0. * u.mA, 10. * u.mA, 0. * u.mA],
-        [200. * u.ms, duration * u.ms, 500. * u.ms]
+        [0., 10., 0.],
+        [200., duration, 500.]
     )
     bg_inputs = u.math.ones_like(v1_inputs) * 10.5
     run_indices = np.arange(v1_inputs.size)
     outs = bst.compile.for_loop(
-        model.step_run, run_indices, bg_inputs, v1_inputs,
+        model.step_run,
+        run_indices,
+        bg_inputs,
+        v1_inputs,
         pbar=bst.compile.ProgressBar(100)
     )
     t1 = time.time()
     print(f'Time cost: {t1 - t0:.2f}s')
 
     # show the raster plot
-    run_indices = run_indices * bst.environ.get_dt().to_decimal(u.ms)
+    run_indices = run_indices * bst.environ.get_dt()
     sps_show(area_names, outs['E-sps'], run_indices, num_exc, 'E spikes')
     sps_show(area_names, outs['I-sps'], run_indices, num_inh, 'I spikes')
 
     # show the firing rate
     fig, gs = braintools.visualize.get_figure(1, 1, 4.5, 6.)
     fig.add_subplot(gs[0, 0])
-    plt.plot(run_indices, braintools.metric.firing_rate(outs['E-sps'], 10., dt=0.1), label='E')
-    plt.plot(run_indices, braintools.metric.firing_rate(outs['I-sps'], 10., dt=0.1), label='I')
+    plt.plot(run_indices, braintools.metric.firing_rate(outs['E-sps'], 10. * u.ms, 0.1 * u.ms), label='E')
+    plt.plot(run_indices, braintools.metric.firing_rate(outs['I-sps'], 10. * u.ms, 0.1 * u.ms), label='I')
     plt.legend()
     plt.show()
 
-    # np.savez(
-    #     f'results/spikes-gIE={u.get_mantissa(g_max[2]):.5f}'
-    #     f'-muEE={u.get_mantissa(g_max[4]):.5f}-duration={duration}.npz',
-    #     E_sps=np.asarray(outs['E-sps']), I_sps=np.asarray(outs['I-sps']),
-    #     g_max=np.asarray(u.get_mantissa(g_max)),
-    # )
+    np.savez(
+        f'results/without-unit-spikes-scale={scale}-gIE={u.get_mantissa(g_max[2]):.5f}'
+        f'-muEE={u.get_mantissa(g_max[4]):.5f}-duration={duration}.npz',
+        E_sps=np.asarray(outs['E-sps']),
+        I_sps=np.asarray(outs['I-sps']),
+        g_max=np.asarray(u.get_mantissa(g_max)),
+    )
 
 
-def try2():
-    bst.environ.set(dt=0.1 * u.ms)
+def evaluate_compile_time():
+    bst.environ.set(dt=0.1)
 
-    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075]) * u.siemens
-    model = _create_model(g_max)
-    v1_inputs = braintools.input.section_input([0. * u.mA, ], [100. * u.ms, ])
+    g_max = np.asarray([0.10108301, 0.60604239, -0.60977116, -0.33540355, 0.075])
+    model = create_model(g_max)
+    v1_inputs = braintools.input.section_input([0. * u.mA, ], [100., ])
     bg_inputs = u.math.ones_like(v1_inputs) * 10.5
     run_indices = np.arange(v1_inputs.size)
 
-    @bst.compile.jit
-    def run():
-        outs = bst.compile.for_loop(model.step_run, run_indices, bg_inputs, v1_inputs)
-        return outs
+    graph_def, treefy_states = bst.graph.flatten(model)
 
-    # run the model
-    t0 = time.time()
-    jax.block_until_ready(run())
-    t1 = time.time()
-    print(f'Time cost: {t1 - t0:.2f}s')
+    @jax.jit
+    def run(treefy_states_):
+        model_ = bst.graph.unflatten(graph_def, treefy_states_)
+        outs = bst.compile.for_loop(model_.step_run, run_indices, bg_inputs, v1_inputs)
+        _, treefy_states_ = bst.graph.flatten(model_)
+        return outs, treefy_states_
 
-    # run the model
     t0 = time.time()
-    jax.block_until_ready(run())
-    t1 = time.time()
-    print(f'Time cost: {t1 - t0:.2f}s')
+    run.lower(treefy_states).compile()
+    print('Compile time:', time.time() - t0)
 
 
 if __name__ == '__main__':
     try_large_scale_system()
-    # try2()
+    # evaluate_compile_time()
