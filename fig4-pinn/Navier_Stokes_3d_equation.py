@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import os
+import sys
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
+import jax
+jax.config.update('jax_cpu_enable_async_dispatch', False)
+jax.config.update('jax_platform_name', 'cpu')
 
 
 import brainunit as u
-
 import brainstate as bst
 import evaluator
 import pinnx
@@ -271,7 +278,7 @@ def solve_problem_without_unit(scale: float = 1.0):
 
     @bst.compile.jit(static_argnums=1)
     def icbc_cond_func(x, include_p: bool = False):
-        x = {k: v.mantissa for k, v in x.items()}
+        x = {k: v for k, v in x.items()}
 
         u_ = (
             -a
@@ -356,5 +363,4 @@ if __name__ == '__main__':
         solve_with_unit=solve_problem_with_unit,
         solve_without_unit=solve_problem_without_unit,
         scales=(0.01, 0.05, 0.1, 0.5, 1.0),
-        num_exp=10
     )

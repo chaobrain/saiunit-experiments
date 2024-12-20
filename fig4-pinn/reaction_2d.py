@@ -1,18 +1,18 @@
+import os
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+
+import jax
+
+jax.config.update('jax_cpu_enable_async_dispatch', False)
+jax.config.update('jax_platform_name', 'cpu')
+
 import brainstate as bst
 import brainunit as u
 import numpy as np
 import pinnx
 
 import evaluator
-
-
-def gen_traindata():
-    data = np.load("./dataset/reaction.npz")
-    t, x, ca, cb = data["t"], data["x"], data["Ca"], data["Cb"]
-    X, T = np.meshgrid(x, t)
-    x = {'x': X.flatten(), 't': T.flatten()}
-    y = {'ca': ca.flatten(), 'cb': cb.flatten()}
-    return x, y
 
 
 def solve_problem_with_unit(scale: float = 1.0):
@@ -61,7 +61,7 @@ def solve_problem_with_unit(scale: float = 1.0):
     ic = pinnx.icbc.IC(fun_init)
 
     def gen_traindata():
-        data = np.load("../dataset/reaction.npz")
+        data = np.load("./dataset/reaction.npz")
         t, x, ca, cb = data["t"], data["x"], data["Ca"], data["Cb"]
         X, T = np.meshgrid(x, t)
         x = {'x': X.flatten() * unit_of_x, 't': T.flatten() * unit_of_t}
@@ -138,6 +138,14 @@ def solve_problem_without_unit(scale: float = 1.0):
 
     ic = pinnx.icbc.IC(fun_init)
 
+    def gen_traindata():
+        data = np.load("./dataset/reaction.npz")
+        t, x, ca, cb = data["t"], data["x"], data["Ca"], data["Cb"]
+        X, T = np.meshgrid(x, t)
+        x = {'x': X.flatten(), 't': T.flatten()}
+        y = {'ca': ca.flatten(), 'cb': cb.flatten()}
+        return x, y
+
     observe_x, observe_y = gen_traindata()
     observe_bc = pinnx.icbc.PointSetBC(observe_x, observe_y)
 
@@ -173,5 +181,5 @@ if __name__ == '__main__':
         solve_with_unit=solve_problem_with_unit,
         solve_without_unit=solve_problem_without_unit,
         scales=(1.0, 2.0, 5.0, 10.0),
-        num_exp=10
+        # num_exp=10
     )

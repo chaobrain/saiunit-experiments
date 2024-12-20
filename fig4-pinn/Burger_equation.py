@@ -1,5 +1,10 @@
-import jax
+import os
+import sys
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+import jax
+jax.config.update('jax_cpu_enable_async_dispatch', False)
 jax.config.update('jax_platform_name', 'cpu')
 
 import brainunit as u
@@ -118,5 +123,4 @@ if __name__ == '__main__':
         solve_with_unit=solve_problem_with_unit,
         solve_without_unit=solve_problem_without_unit,
         scales=(0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
-        num_exp=10
     )
