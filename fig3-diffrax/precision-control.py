@@ -30,14 +30,11 @@
 # ==============================================================================
 
 
+import braintools
 import brainunit as u
 import matplotlib.pyplot as plt
-
 from diffrax import Dopri5, Tsit5
 from diffrax import diffeqsolve, ODETerm, SaveAt
-
-import braintools
-import seaborn as sns
 
 
 def chemical_kinetic_first_order():
@@ -62,16 +59,17 @@ def chemical_kinetic_first_order():
     # plt.legend()
     # plt.show()
 
-    sns.set_theme(font_scale=1.1)
+    # sns.set_theme(font_scale=1.1)
     fig, gs = braintools.visualize.get_figure(1, 1, 3, 4)
-    fig.add_subplot(gs[0, 0])
+    ax = fig.add_subplot(gs[0, 0])
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
     plt.plot(sol.ts, sol.ys, label="A")
     plt.ylabel("Concentration (Molar)")
     plt.xlim(t0, t1)
-    plt.legend(fontsize=10, bbox_to_anchor=(1.04, 1.0), loc="upper left")
-    plt.savefig("chemical_kinetic_first_order.svg")
+    plt.legend(fontsize=10, bbox_to_anchor=(1.0, 1.0), loc="upper left")
+    plt.savefig("results/chemical_kinetic_first_order.svg")
     # plt.show()
-
 
 
 def sir_model():
@@ -80,6 +78,7 @@ def sir_model():
     scale = u.day
     β, γ = 0.3 / scale, 0.1 / scale
     β, γ = 0.2 / scale, 0.1 / scale
+
     # β, γ = 0.1 / scale, 0.2 / scale
     # β, γ = 1.5 / scale, 0.1 / scale
 
@@ -99,9 +98,11 @@ def sir_model():
     saveat = SaveAt(ts=u.math.linspace(t0, t1, 1000), t1=True, t0=True)
     sol = diffeqsolve(term, solver, t0, t1, dt0, y0, saveat=saveat)
 
-    sns.set_theme(font_scale=1.1)
+    # sns.set_theme(font_scale=1.1)
     fig, gs = braintools.visualize.get_figure(1, 1, 3, 4)
     ax = fig.add_subplot(gs[0, 0])
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
     plt.plot(sol.ts, sol.ys[0] * N, label="S")
     plt.plot(sol.ts, sol.ys[1] * N, label="I")
     plt.plot(sol.ts, sol.ys[2] * N, label="R")
@@ -110,8 +111,8 @@ def sir_model():
     plt.ylabel(r"Population Size ($\times  10^4$)")
     # plt.ylabel("Population Size")
     plt.xlim(t0, t1)
-    plt.legend(fontsize=10, bbox_to_anchor=(1.04, 1.0), loc="upper left")
-    plt.savefig("sir_model.svg")
+    plt.legend(fontsize=10, bbox_to_anchor=(1.0, 1.0), loc="upper left")
+    plt.savefig("results/sir_model.svg")
     # plt.show()
 
 
@@ -136,17 +137,19 @@ def lotka_volterra_equation():
     saveat = SaveAt(ts=u.math.linspace(t0, t1, 1000), t1=True, t0=True)
     sol = diffeqsolve(term, solver, t0, t1, dt0, y0, args=args, saveat=saveat, max_steps=100000)
 
-    sns.set_theme(font_scale=1.1)
+    # sns.set_theme(font_scale=1.1)
     fig, gs = braintools.visualize.get_figure(1, 1, 3, 4)
     ax = fig.add_subplot(gs[0, 0])
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
     plt.plot(sol.ts, sol.ys[0], label="R")
     plt.plot(sol.ts, sol.ys[1], label="P")
     # plt.title("Lotka-Volterra Equation")
     plt.ylabel("Population Size")
     plt.xlim(t0, t1)
     # plt.legend(fontsize=10)
-    plt.legend(fontsize=10, bbox_to_anchor=(1.04, 1.0), loc="upper left")
-    plt.savefig("lotka_volterra_equation.svg")
+    plt.legend(fontsize=10, bbox_to_anchor=(1.0, 1.0), loc="upper left")
+    plt.savefig("results/lotka_volterra_equation.svg")
     # plt.show()
 
 
@@ -156,4 +159,3 @@ if __name__ == '__main__':
     chemical_kinetic_first_order()
     sir_model()
     lotka_volterra_equation()
-

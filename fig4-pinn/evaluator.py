@@ -18,20 +18,13 @@ import os
 import pickle
 import sys
 import time
-
-import numpy as np
-
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
-import jax
-
-jax.config.update('jax_cpu_enable_async_dispatch', False)
-# jax.config.update('jax_platform_name', 'cpu')
-
-from typing import Sequence, Callable
-import brainunit as u
 from contextlib import contextmanager
+from typing import Sequence, Callable
+
 import brainstate as bst
+import brainunit as u
+import jax
+import numpy as np
 import pinnx
 
 
@@ -96,9 +89,10 @@ def eval(
     _, compile_time = trainer.compile(bst.optim.Adam(1e-3), measture_train_step_compile_time=True)
     trainer.train(iterations=n_train)
 
-
-    loss_train = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_train, is_leaf=u.math.is_quantity)
-    loss_test = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_test, is_leaf=u.math.is_quantity)
+    loss_train = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_train,
+                              is_leaf=u.math.is_quantity)
+    loss_test = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_test,
+                             is_leaf=u.math.is_quantity)
 
     return dict(
         n_point=n_point,

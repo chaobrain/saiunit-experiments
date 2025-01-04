@@ -17,6 +17,7 @@
 import time
 from functools import partial
 
+import braintools.visualize
 import brainunit as u
 import diffrax
 import equinox as eqx
@@ -278,12 +279,14 @@ def show_with_unit():
     psi_final = psi_updated[time_index]
 
     # 绘制涡度场
-    plt.figure(figsize=(6, 5))
+    fig, gs = braintools.visualize.get_figure(1, 1, 4.5, 6.)
+    ax = fig.add_subplot(gs[0, 0])
     plt.contourf(omega_final.mantissa, levels=50, cmap='viridis')
     plt.colorbar(label='Vorticity')
-    plt.title(f'Final Vorticity Field [{omega_final.unit}]\n(simulation with units)')
+    plt.title(f'Navier-Stokes 2d Equation, Final Vorticity Field [{omega_final.unit}]\n(simulation with units, t = 10 s)')
     plt.xlabel(f'X [{unit_of_x}]')
     plt.ylabel(f'Y [{unit_of_y}]')
+    plt.savefig('results/Navier-Stokes-2d-with-unit.eps')
     # plt.show()
 
 
@@ -298,12 +301,14 @@ def show_without_unit():
     psi_final = psi_updated[time_index]
 
     # 绘制涡度场
-    plt.figure(figsize=(6, 5))
+    fig, gs = braintools.visualize.get_figure(1, 1, 4.5, 6.)
+    ax = fig.add_subplot(gs[0, 0])
     plt.contourf(omega_final, levels=50, cmap='viridis')
     plt.colorbar(label='Vorticity')
-    plt.title('Final Vorticity Field\n(simulation without units)')
+    plt.title('Navier-Stokes 2d Equation, Final Vorticity Field\n(simulation without units, t = 10 s)')
     plt.xlabel('X')
     plt.ylabel('Y')
+    plt.savefig('results/Navier-Stokes-2d-without-unit.eps')
     plt.show()
 
 
@@ -358,7 +363,7 @@ def compare_compilation_time():
 
         without_unit_mean = statistics.mean(without_unit_compile_times)
         without_unit_std = statistics.stdev(without_unit_compile_times)
-        print(f'with unit compile time = {without_unit_mean} ± {without_unit_std} s')
+        print(f'without unit compile time = {without_unit_mean} ± {without_unit_std} s')
 
         tstat, pval = stats.ttest_ind(a=with_unit_compile_times, b=without_unit_compile_times, alternative="two-sided")
         print("t-stat: {:.2f}   pval: {:.4f}".format(tstat, pval))
@@ -421,6 +426,6 @@ def compare_simulation_time():
 
 
 if __name__ == '__main__':
-    # compare_simulation_results()
+    compare_simulation_results()
     # compare_compilation_time()
-    compare_simulation_time()
+    # compare_simulation_time()

@@ -1,8 +1,8 @@
-/04-task-training/results/
+/fig3-snn-task-training/results/
 .idea
-/04-task-training/.idea
+/fig3-snn-task-training/.idea
 /fig3-mutiscale-brain-network/results/
-/04-task-training/verification.py
+/fig3-snn-task-training/verification.py
 /archive/
 /fig3-mutiscale-brain-network/results/
 /fig3-mutiscale-brain-network/vis/
@@ -10,3 +10,5 @@
 /fig4-multiscale-brain-model/results/
 /fig4-multiscale-brain-model/results/
 /fig4-pinn/results/
+/fig3-pinnx/figure-J/
+/fig3-diffrax/results/
