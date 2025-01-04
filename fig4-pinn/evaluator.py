@@ -56,6 +56,7 @@ class Trainer(pinnx.Trainer):
 
     def _train(self, iterations, display_every, batch_size, callbacks):
         for i in range(iterations):
+            t0 = time.time()
             callbacks.on_epoch_begin()
             callbacks.on_batch_begin()
 
@@ -63,11 +64,7 @@ class Trainer(pinnx.Trainer):
             self.train_state.set_data_train(*self.problem.train_next_batch(batch_size))
 
             # train one batch
-            t0 = time.time()
             self.fn_train_step(self.train_state.X_train, self.train_state.y_train, **self.train_state.Aux_train)
-            t1 = time.time()
-
-            self._train_times.append(t1 - t0)
 
             self.train_state.epoch += 1
             self.train_state.step += 1
@@ -76,6 +73,9 @@ class Trainer(pinnx.Trainer):
 
             callbacks.on_batch_end()
             callbacks.on_epoch_end()
+
+            t1 = time.time()
+            self._train_times.append(t1 - t0)
 
             if self.stop_training:
                 break
