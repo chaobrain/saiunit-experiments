@@ -363,7 +363,7 @@ def compare_compilation_time():
 
         without_unit_mean = statistics.mean(without_unit_compile_times)
         without_unit_std = statistics.stdev(without_unit_compile_times)
-        print(f'with unit compile time = {without_unit_mean} ± {without_unit_std} s')
+        print(f'without unit compile time = {without_unit_mean} ± {without_unit_std} s')
 
         tstat, pval = stats.ttest_ind(a=with_unit_compile_times, b=without_unit_compile_times, alternative="two-sided")
         print("t-stat: {:.2f}   pval: {:.4f}".format(tstat, pval))
