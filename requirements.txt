@@ -4,3 +4,4 @@ braintools
 brainunit
 brainpy
 matplotlib
+brainpy_datasets

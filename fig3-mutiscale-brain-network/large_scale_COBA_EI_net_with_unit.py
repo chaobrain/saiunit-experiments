@@ -428,58 +428,63 @@ def show_hierarchy_spikes_and_currents():
         ax.spines['top'].set_color('none')
         return ax
 
-    # recurrent spikes
-    fig, gs = braintools.visualize.get_figure(1, 1, 4.5, 3.5)
-    ax = get_ax(fig.add_subplot(gs[0, 0]))
-    elements = np.where(sps > 0.)
-    indices = elements[1]
-    times_ = times[elements[0]]
-    plt.plot(times_, indices, '.', markersize=5, rasterized=True)
-    plt.yticks(np.arange(len(area_names)) * num_exc + num_exc / 2, area_names)
-    plt.ylim(0, len(area_names) * num_exc)
-    plt.xlabel('Time [ms]')
-    plt.savefig('vis/hierarchy-spikes.svg')
-    plt.savefig('vis/hierarchy-spikes.pdf')
+    # # recurrent spikes
+    # fig, gs = braintools.visualize.get_figure(1, 1, 4.5, 3.5)
+    # ax = get_ax(fig.add_subplot(gs[0, 0]))
+    # elements = np.where(sps > 0.)
+    # indices = elements[1]
+    # times_ = times[elements[0]]
+    # plt.plot(times_, indices, '.', markersize=5, rasterized=True)
+    # plt.yticks(np.arange(len(area_names)) * num_exc + num_exc / 2, area_names)
+    # plt.ylim(0, len(area_names) * num_exc)
+    # plt.xlabel('Time [ms]')
+    # plt.savefig('vis/hierarchy-spikes.svg')
+    # plt.savefig('vis/hierarchy-spikes.pdf')
 
-    # for i in range(5):
-    #     axes = []
-    #     fig, gs = braintools.visualize.get_figure(4, 1, 1.5, 4.)
-    #     ax = get_ax(fig.add_subplot(gs[0, 0]))
-    #     plt.plot(times, outs[f'{area}-membrane'])
-    #     ax.axes.get_xaxis().set_visible(False)
-    #     axes.append(ax)
-    #     plt.ylabel('Membrane \npotential [mV]')
-    #
-    #     ax = get_ax(fig.add_subplot(gs[1, 0]))
-    #     plt.plot(times, outs[f'{area}-syn-g'])
-    #     ax.axes.get_xaxis().set_visible(False)
-    #     plt.ylabel('Synaptic \nconductance [S]')
-    #     axes.append(ax)
-    #
-    #     ax = get_ax(fig.add_subplot(gs[2, 0]))
-    #     plt.plot(times, outs[f'{area}-intra-current']['E-Ecurrent'][..., i], label='E-E')
-    #     plt.plot(times, outs[f'{area}-intra-current']['E-Icurrent'][..., i], label='E-I')
-    #     plt.plot(times, outs[f'{area}-intra-current']['I-Ecurrent'][..., i], label='I-E')
-    #     plt.plot(times, outs[f'{area}-intra-current']['I-Icurrent'][..., i], label='I-I')
-    #     plt.legend(bbox_to_anchor=(1.0, 1.0), loc="upper left", fontsize=8)
-    #     # plt.xticks([])
-    #     ax.axes.get_xaxis().set_visible(False)
-    #     axes.append(ax)
-    #     plt.ylabel('Intra-area \ncurrent [mA]')
-    #
-    #     ax = get_ax(fig.add_subplot(gs[3, 0]))
-    #     for name in outs[f'{area}-circuit-current']:
-    #         plt.plot(times, outs[f'{area}-circuit-current'][name][..., i], label=name)
-    #     ax.set_yscale('log')
-    #     plt.legend(bbox_to_anchor=(1.0, 1.0), loc="upper left", fontsize=8)
-    #     axes.append(ax)
-    #     plt.ylabel('Inter-area \ncurrent [mA]')
-    #
-    #     fig.align_ylabels(axes)
-    #     plt.savefig(f'vis/components-{i}.svg')
-    #     plt.savefig(f'vis/components-{i}.pdf')
+    for i in range(5):
+        axes = []
+        fig, gs = braintools.visualize.get_figure(3, 1, 2, 4.)
+        ax = get_ax(fig.add_subplot(gs[0, 0]))
+        for j in range(5):
+            plt.plot(times, outs[f'{area}-membrane'][..., j], label=f'Neuron {j}')
+        ax.axes.get_xaxis().set_visible(False)
+        plt.legend(fontsize=8)
+        axes.append(ax)
+        plt.ylabel('Membrane \npotential [mV]')
 
-    # plt.show()
+        # ax = get_ax(fig.add_subplot(gs[1, 0]))
+        # plt.plot(times, outs[f'{area}-syn-g'])
+        # ax.axes.get_xaxis().set_visible(False)
+        # plt.ylabel('Synaptic \nconductance [S]')
+        # axes.append(ax)
+
+        ax = get_ax(fig.add_subplot(gs[1, 0]))
+        plt.plot(times, outs[f'{area}-intra-current']['E-Ecurrent'][..., i], label='E-E')
+        plt.plot(times, outs[f'{area}-intra-current']['E-Icurrent'][..., i], label='E-I')
+        plt.plot(times, outs[f'{area}-intra-current']['I-Ecurrent'][..., i], label='I-E')
+        plt.plot(times, outs[f'{area}-intra-current']['I-Icurrent'][..., i], label='I-I')
+        # plt.legend(bbox_to_anchor=(1.0, 1.0), loc="upper left", fontsize=8)
+        plt.legend(fontsize=8)
+        # plt.xticks([])
+        ax.axes.get_xaxis().set_visible(False)
+        axes.append(ax)
+        plt.ylabel('Intra-area \ncurrent [mA]')
+
+        ax = get_ax(fig.add_subplot(gs[2, 0]))
+        for name in outs[f'{area}-circuit-current']:
+            plt.plot(times, outs[f'{area}-circuit-current'][name][..., i], label=name)
+        ax.set_yscale('log')
+        # plt.legend(bbox_to_anchor=(1.0, 1.0), loc="upper left", fontsize=8)
+        plt.legend(fontsize=8)
+        axes.append(ax)
+        plt.ylabel('Inter-area \ncurrent [mA]')
+        plt.xlabel('Time [ms]')
+
+        fig.align_ylabels(axes)
+        plt.savefig(f'vis/components-{i}.svg')
+        plt.savefig(f'vis/components-{i}.pdf')
+
+    plt.show()
 
 
 def try_large_scale_system(scale: float = 1.0):
