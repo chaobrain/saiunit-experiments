@@ -1,17 +1,20 @@
 import os
 import sys
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
 import jax
+
 jax.config.update('jax_cpu_enable_async_dispatch', False)
-jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 
 import brainunit as u
 
 import pinnx
 
 import evaluator
+import brainstate as bst
+
+if len(sys.argv) > 1:
+    bst.environ.set(precision=(sys.argv[1]))
 
 
 def solve_problem_with_unit(scale=1.0):
@@ -62,7 +65,8 @@ def solve_problem_with_unit(scale=1.0):
         'problem': problem,
         'n_point': num_domain + num_boundary + num_initial,
         'unit': True,
-        'n_train': 15000
+        'n_train': 15000,
+        'lr': 1e-4,
     }
 
 
@@ -113,14 +117,16 @@ def solve_problem_without_unit(scale=1.0):
         'problem': problem,
         'n_point': num_domain + num_boundary + num_initial,
         'unit': False,
-        'n_train': 15000
+        'n_train': 15000,
+        'lr': 1e-4,
     }
 
 
 if __name__ == '__main__':
     evaluator.scaling_experiments(
-        'Burger_equation',
+        f'Burger_equation-f{bst.environ.get_precision()}',
         solve_with_unit=solve_problem_with_unit,
         solve_without_unit=solve_problem_without_unit,
         scales=(0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
+        # scales=(1.0,),
     )

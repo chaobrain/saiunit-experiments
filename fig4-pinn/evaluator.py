@@ -22,6 +22,7 @@ from contextlib import contextmanager
 from typing import Sequence, Callable
 
 import brainstate as bst
+import optax
 import brainunit as u
 import jax
 import numpy as np
@@ -75,24 +76,32 @@ class Trainer(pinnx.Trainer):
 
 
 def eval(
-    problem,
-    n_point,
-    unit: bool = True,
-    n_train: int = 15000,
-    external_trainable_variables: Sequence = None,
-    **kwargs
+        problem,
+        n_point,
+        unit: bool = True,
+        n_train: int = 15000,
+        external_trainable_variables: Sequence = None,
+        **kwargs
 ):
     trainer = Trainer(
         problem,
         external_trainable_variables=external_trainable_variables
     )
-    _, compile_time = trainer.compile(bst.optim.Adam(1e-3), measture_train_step_compile_time=True)
+    # _, compile_time = trainer.compile(bst.optim.Adam(1e-3), measture_train_step_compile_time=True)
+    _, compile_time = trainer.compile(
+        bst.optim.OptaxOptimizer(optax.adamw(kwargs.get('lr', 1e-3))),
+        measture_train_step_compile_time=True
+    )
     trainer.train(iterations=n_train)
 
-    loss_train = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_train,
-                              is_leaf=u.math.is_quantity)
-    loss_test = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_test,
-                             is_leaf=u.math.is_quantity)
+    loss_train = jax.tree.map(
+        lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_train,
+        is_leaf=u.math.is_quantity
+    )
+    loss_test = jax.tree.map(
+        lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_test,
+        is_leaf=u.math.is_quantity
+    )
 
     return dict(
         n_point=n_point,
@@ -107,10 +116,10 @@ def eval(
 
 
 def scaling_experiments(
-    name: str,
-    solve_with_unit: Callable[[float], dict],
-    solve_without_unit: Callable[[float], dict],
-    scales: Sequence[float] = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
+        name: str,
+        solve_with_unit: Callable[[float], dict],
+        solve_without_unit: Callable[[float], dict],
+        scales: Sequence[float] = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
 ):
     platform = jax.default_backend()
     os.makedirs('results/', exist_ok=True)
@@ -122,6 +131,8 @@ def scaling_experiments(
         with open(f'results/{name}_{platform}_scaling={scale}_with_unit.pkl', 'wb') as f:
             pickle.dump(result1, f)
         print(f'with unit: {result1["best_loss_test"]}, {result1["compile_time"]}, {result1["train_times"].mean()}')
+        jax.clear_caches()
+
         result2 = eval(**solve_without_unit(scale))
         with open(f'results/{name}_{platform}_scaling={scale}_without_unit.pkl', 'wb') as f:
             pickle.dump(result2, f)
