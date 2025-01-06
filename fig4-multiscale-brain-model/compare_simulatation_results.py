@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import brainstate as bst
+bst.environ.set(precision='bf16')
 from _large_scale_COBA_EI_net_with_unit import create_model as create_model_with_units, area_names, num_exc
 from _large_scale_COBA_EI_net_without_unit import create_model as create_model_without_units
 

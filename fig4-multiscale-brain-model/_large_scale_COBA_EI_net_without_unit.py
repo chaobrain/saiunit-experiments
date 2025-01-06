@@ -86,12 +86,15 @@ class LifRefLTC(bst.nn.Neuron):
 
 
 def pop_expon_syn(pre, post, delay, prob, g_max, tau):
+    if bst.environ.get('precision') == 'bf16':
+        g_max = u.math.asarray(g_max, dtype=np.float32)
     return bst.nn.AlignPostProj(
         (
             pre.prefetch('spike')
             if (delay is None) or (delay < bst.environ.get_dt()) else
             pre.prefetch('spike').delay.at(delay)
         ),
+        lambda x: x != 0.,
         comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
         syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit()),
         out=bst.nn.CUBA.desc(scale=1.),

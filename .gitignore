@@ -12,3 +12,6 @@
 /fig4-pinn/results/
 /fig3-pinnx/figure-J/
 /fig3-diffrax/results/
+/fig4-pinn/floating-precision/
+/fig4-fp16-precision-control/results/
+/fp16/

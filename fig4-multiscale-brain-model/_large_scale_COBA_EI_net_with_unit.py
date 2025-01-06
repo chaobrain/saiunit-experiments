@@ -61,7 +61,7 @@ class LifRefLTC(bst.nn.Neuron):
 
     def init_state(self, batch_size=None, **kwargs):
         self.V = bst.ShortTermState(bst.init.param(self._V_initializer, self.varshape, batch_size))
-        self.spike = bst.ShortTermState(bst.init.param(u.math.zeros, self.varshape, batch_size))
+        self.spike = bst.ShortTermState(bst.init.param(bst.init.ZeroInit(), self.varshape, batch_size))
         self.t_last_spike = bst.ShortTermState(
             bst.init.param(bst.init.Constant(-1e7 * u.ms), self.varshape, batch_size)
         )
@@ -89,12 +89,15 @@ class LifRefLTC(bst.nn.Neuron):
 def pop_expon_syn(pre, post, delay, prob, g_max, tau):
     with jax.ensure_compile_time_eval():
         has_delay = (delay is None) or (delay < bst.environ.get_dt())
+    if bst.environ.get('precision') == 'bf16':
+        g_max = u.math.asarray(g_max, dtype=np.float32)
     return bst.nn.AlignPostProj(
         (
             pre.prefetch('spike')
             if has_delay else
             pre.prefetch('spike').delay.at(delay)
         ),
+        lambda x: x != 0.,
         comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
         syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit(unit=u.siemens)),
         out=bst.nn.CUBA.desc(scale=u.mV),
