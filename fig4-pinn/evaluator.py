@@ -22,6 +22,7 @@ from contextlib import contextmanager
 from typing import Sequence, Callable
 
 import brainstate as bst
+import optax
 import brainunit as u
 import jax
 import numpy as np
@@ -49,6 +50,7 @@ class Trainer(pinnx.Trainer):
 
     def _train(self, iterations, display_every, batch_size, callbacks):
         for i in range(iterations):
+            t0 = time.time()
             callbacks.on_epoch_begin()
             callbacks.on_batch_begin()
 
@@ -56,11 +58,7 @@ class Trainer(pinnx.Trainer):
             self.train_state.set_data_train(*self.problem.train_next_batch(batch_size))
 
             # train one batch
-            t0 = time.time()
             self.fn_train_step(self.train_state.X_train, self.train_state.y_train, **self.train_state.Aux_train)
-            t1 = time.time()
-
-            self._train_times.append(t1 - t0)
 
             self.train_state.epoch += 1
             self.train_state.step += 1
@@ -70,29 +68,40 @@ class Trainer(pinnx.Trainer):
             callbacks.on_batch_end()
             callbacks.on_epoch_end()
 
+            t1 = time.time()
+            self._train_times.append(t1 - t0)
+
             if self.stop_training:
                 break
 
 
 def eval(
-    problem,
-    n_point,
-    unit: bool = True,
-    n_train: int = 15000,
-    external_trainable_variables: Sequence = None,
-    **kwargs
+        problem,
+        n_point,
+        unit: bool = True,
+        n_train: int = 15000,
+        external_trainable_variables: Sequence = None,
+        **kwargs
 ):
     trainer = Trainer(
         problem,
         external_trainable_variables=external_trainable_variables
     )
-    _, compile_time = trainer.compile(bst.optim.Adam(1e-3), measture_train_step_compile_time=True)
+    # _, compile_time = trainer.compile(bst.optim.Adam(1e-3), measture_train_step_compile_time=True)
+    _, compile_time = trainer.compile(
+        bst.optim.OptaxOptimizer(optax.adamw(kwargs.get('lr', 1e-3))),
+        measture_train_step_compile_time=True
+    )
     trainer.train(iterations=n_train)
 
-    loss_train = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_train,
-                              is_leaf=u.math.is_quantity)
-    loss_test = jax.tree.map(lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_test,
-                             is_leaf=u.math.is_quantity)
+    loss_train = jax.tree.map(
+        lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_train,
+        is_leaf=u.math.is_quantity
+    )
+    loss_test = jax.tree.map(
+        lambda *xs: u.math.asarray(xs), *trainer.loss_history.loss_test,
+        is_leaf=u.math.is_quantity
+    )
 
     return dict(
         n_point=n_point,
@@ -107,10 +116,10 @@ def eval(
 
 
 def scaling_experiments(
-    name: str,
-    solve_with_unit: Callable[[float], dict],
-    solve_without_unit: Callable[[float], dict],
-    scales: Sequence[float] = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
+        name: str,
+        solve_with_unit: Callable[[float], dict],
+        solve_without_unit: Callable[[float], dict],
+        scales: Sequence[float] = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
 ):
     platform = jax.default_backend()
     os.makedirs('results/', exist_ok=True)
@@ -122,6 +131,8 @@ def scaling_experiments(
         with open(f'results/{name}_{platform}_scaling={scale}_with_unit.pkl', 'wb') as f:
             pickle.dump(result1, f)
         print(f'with unit: {result1["best_loss_test"]}, {result1["compile_time"]}, {result1["train_times"].mean()}')
+        jax.clear_caches()
+
         result2 = eval(**solve_without_unit(scale))
         with open(f'results/{name}_{platform}_scaling={scale}_without_unit.pkl', 'wb') as f:
             pickle.dump(result2, f)

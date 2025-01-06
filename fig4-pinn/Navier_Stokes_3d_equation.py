@@ -13,14 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 import os
+
 import sys
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
 import jax
-jax.config.update('jax_cpu_enable_async_dispatch', False)
-jax.config.update('jax_platform_name', 'cpu')
 
+jax.config.update('jax_cpu_enable_async_dispatch', False)
+# jax.config.update('jax_platform_name', 'cpu')
+import brainstate as bst
+
+if len(sys.argv) > 1:
+    bst.environ.set(precision=(sys.argv[1]))
 
 import brainunit as u
 import brainstate as bst
@@ -99,16 +102,16 @@ def solve_problem_with_unit(scale: float = 1.0):
         dp_dz = jacobian['p']['z']
 
         momentum_x = (
-            rho * (du_vel_dt + (u_vel * du_vel_dx + v_vel * du_vel_dy + w_vel * du_vel_dz))
-            + dp_dx - mu * (du_vel_dx_dx + du_vel_dy_dy + du_vel_dz_dz)
+                rho * (du_vel_dt + (u_vel * du_vel_dx + v_vel * du_vel_dy + w_vel * du_vel_dz))
+                + dp_dx - mu * (du_vel_dx_dx + du_vel_dy_dy + du_vel_dz_dz)
         )
         momentum_y = (
-            rho * (dv_vel_dt + (u_vel * dv_vel_dx + v_vel * dv_vel_dy + w_vel * dv_vel_dz))
-            + dp_dy - mu * (dv_vel_dx_dx + dv_vel_dy_dy + dv_vel_dz_dz)
+                rho * (dv_vel_dt + (u_vel * dv_vel_dx + v_vel * dv_vel_dy + w_vel * dv_vel_dz))
+                + dp_dy - mu * (dv_vel_dx_dx + dv_vel_dy_dy + dv_vel_dz_dz)
         )
         momentum_z = (
-            rho * (dw_vel_dt + (u_vel * dw_vel_dx + v_vel * dw_vel_dy + w_vel * dw_vel_dz))
-            + dp_dz - mu * (dw_vel_dx_dx + dw_vel_dy_dy + dw_vel_dz_dz)
+                rho * (dw_vel_dt + (u_vel * dw_vel_dx + v_vel * dw_vel_dy + w_vel * dw_vel_dz))
+                + dp_dz - mu * (dw_vel_dx_dx + dw_vel_dy_dy + dw_vel_dz_dz)
         )
         continuity = du_vel_dx + dv_vel_dy + dw_vel_dz
 
@@ -119,44 +122,44 @@ def solve_problem_with_unit(scale: float = 1.0):
         x = {k: v.mantissa for k, v in x.items()}
 
         u_ = (
-            -a
-            * (u.math.exp(a * x['x']) * u.math.sin(a * x['y'] + d * x['z'])
-               + u.math.exp(a * x['z']) * u.math.cos(a * x['x'] + d * x['y']))
-            * u.math.exp(-(d ** 2) * x['t'])
+                -a
+                * (u.math.exp(a * x['x']) * u.math.sin(a * x['y'] + d * x['z'])
+                   + u.math.exp(a * x['z']) * u.math.cos(a * x['x'] + d * x['y']))
+                * u.math.exp(-(d ** 2) * x['t'])
         )
         v = (
-            -a
-            * (u.math.exp(a * x['y']) * u.math.sin(a * x['z'] + d * x['x'])
-               + u.math.exp(a * x['x']) * u.math.cos(a * x['y'] + d * x['z']))
-            * u.math.exp(-(d ** 2) * x['t'])
+                -a
+                * (u.math.exp(a * x['y']) * u.math.sin(a * x['z'] + d * x['x'])
+                   + u.math.exp(a * x['x']) * u.math.cos(a * x['y'] + d * x['z']))
+                * u.math.exp(-(d ** 2) * x['t'])
         )
         w = (
-            -a
-            * (u.math.exp(a * x['z']) * u.math.sin(a * x['x'] + d * x['y'])
-               + u.math.exp(a * x['y']) * u.math.cos(a * x['z'] + d * x['x']))
-            * u.math.exp(-(d ** 2) * x['t'])
+                -a
+                * (u.math.exp(a * x['z']) * u.math.sin(a * x['x'] + d * x['y'])
+                   + u.math.exp(a * x['y']) * u.math.cos(a * x['z'] + d * x['x']))
+                * u.math.exp(-(d ** 2) * x['t'])
         )
         p = (
-            -0.5
-            * a ** 2
-            * (
-                u.math.exp(2 * a * x['x'])
-                + u.math.exp(2 * a * x['y'])
-                + u.math.exp(2 * a * x['z'])
-                + 2
-                * u.math.sin(a * x['x'] + d * x['y'])
-                * u.math.cos(a * x['z'] + d * x['x'])
-                * u.math.exp(a * (x['y'] + x['z']))
-                + 2
-                * u.math.sin(a * x['y'] + d * x['z'])
-                * u.math.cos(a * x['x'] + d * x['y'])
-                * u.math.exp(a * (x['z'] + x['x']))
-                + 2
-                * u.math.sin(a * x['z'] + d * x['x'])
-                * u.math.cos(a * x['y'] + d * x['z'])
-                * u.math.exp(a * (x['x'] + x['y']))
-            )
-            * u.math.exp(-2 * d ** 2 * x['t'])
+                -0.5
+                * a ** 2
+                * (
+                        u.math.exp(2 * a * x['x'])
+                        + u.math.exp(2 * a * x['y'])
+                        + u.math.exp(2 * a * x['z'])
+                        + 2
+                        * u.math.sin(a * x['x'] + d * x['y'])
+                        * u.math.cos(a * x['z'] + d * x['x'])
+                        * u.math.exp(a * (x['y'] + x['z']))
+                        + 2
+                        * u.math.sin(a * x['y'] + d * x['z'])
+                        * u.math.cos(a * x['x'] + d * x['y'])
+                        * u.math.exp(a * (x['z'] + x['x']))
+                        + 2
+                        * u.math.sin(a * x['z'] + d * x['x'])
+                        * u.math.cos(a * x['y'] + d * x['z'])
+                        * u.math.exp(a * (x['x'] + x['y']))
+                )
+                * u.math.exp(-2 * d ** 2 * x['t'])
         )
 
         r = {
@@ -191,7 +194,7 @@ def solve_problem_with_unit(scale: float = 1.0):
         'problem': problem,
         'unit': True,
         'n_point': num_domain + num_boundary + num_initial,
-        'n_train': 30000
+        'n_train': 15000
     }
 
 
@@ -261,16 +264,16 @@ def solve_problem_without_unit(scale: float = 1.0):
         dp_dz = jacobian['p']['z']
 
         momentum_x = (
-            rho * (du_vel_dt + (u_vel * du_vel_dx + v_vel * du_vel_dy + w_vel * du_vel_dz))
-            + dp_dx - mu * (du_vel_dx_dx + du_vel_dy_dy + du_vel_dz_dz)
+                rho * (du_vel_dt + (u_vel * du_vel_dx + v_vel * du_vel_dy + w_vel * du_vel_dz))
+                + dp_dx - mu * (du_vel_dx_dx + du_vel_dy_dy + du_vel_dz_dz)
         )
         momentum_y = (
-            rho * (dv_vel_dt + (u_vel * dv_vel_dx + v_vel * dv_vel_dy + w_vel * dv_vel_dz))
-            + dp_dy - mu * (dv_vel_dx_dx + dv_vel_dy_dy + dv_vel_dz_dz)
+                rho * (dv_vel_dt + (u_vel * dv_vel_dx + v_vel * dv_vel_dy + w_vel * dv_vel_dz))
+                + dp_dy - mu * (dv_vel_dx_dx + dv_vel_dy_dy + dv_vel_dz_dz)
         )
         momentum_z = (
-            rho * (dw_vel_dt + (u_vel * dw_vel_dx + v_vel * dw_vel_dy + w_vel * dw_vel_dz))
-            + dp_dz - mu * (dw_vel_dx_dx + dw_vel_dy_dy + dw_vel_dz_dz)
+                rho * (dw_vel_dt + (u_vel * dw_vel_dx + v_vel * dw_vel_dy + w_vel * dw_vel_dz))
+                + dp_dz - mu * (dw_vel_dx_dx + dw_vel_dy_dy + dw_vel_dz_dz)
         )
         continuity = du_vel_dx + dv_vel_dy + dw_vel_dz
 
@@ -281,44 +284,44 @@ def solve_problem_without_unit(scale: float = 1.0):
         x = {k: v for k, v in x.items()}
 
         u_ = (
-            -a
-            * (u.math.exp(a * x['x']) * u.math.sin(a * x['y'] + d * x['z'])
-               + u.math.exp(a * x['z']) * u.math.cos(a * x['x'] + d * x['y']))
-            * u.math.exp(-(d ** 2) * x['t'])
+                -a
+                * (u.math.exp(a * x['x']) * u.math.sin(a * x['y'] + d * x['z'])
+                   + u.math.exp(a * x['z']) * u.math.cos(a * x['x'] + d * x['y']))
+                * u.math.exp(-(d ** 2) * x['t'])
         )
         v = (
-            -a
-            * (u.math.exp(a * x['y']) * u.math.sin(a * x['z'] + d * x['x'])
-               + u.math.exp(a * x['x']) * u.math.cos(a * x['y'] + d * x['z']))
-            * u.math.exp(-(d ** 2) * x['t'])
+                -a
+                * (u.math.exp(a * x['y']) * u.math.sin(a * x['z'] + d * x['x'])
+                   + u.math.exp(a * x['x']) * u.math.cos(a * x['y'] + d * x['z']))
+                * u.math.exp(-(d ** 2) * x['t'])
         )
         w = (
-            -a
-            * (u.math.exp(a * x['z']) * u.math.sin(a * x['x'] + d * x['y'])
-               + u.math.exp(a * x['y']) * u.math.cos(a * x['z'] + d * x['x']))
-            * u.math.exp(-(d ** 2) * x['t'])
+                -a
+                * (u.math.exp(a * x['z']) * u.math.sin(a * x['x'] + d * x['y'])
+                   + u.math.exp(a * x['y']) * u.math.cos(a * x['z'] + d * x['x']))
+                * u.math.exp(-(d ** 2) * x['t'])
         )
         p = (
-            -0.5
-            * a ** 2
-            * (
-                u.math.exp(2 * a * x['x'])
-                + u.math.exp(2 * a * x['y'])
-                + u.math.exp(2 * a * x['z'])
-                + 2
-                * u.math.sin(a * x['x'] + d * x['y'])
-                * u.math.cos(a * x['z'] + d * x['x'])
-                * u.math.exp(a * (x['y'] + x['z']))
-                + 2
-                * u.math.sin(a * x['y'] + d * x['z'])
-                * u.math.cos(a * x['x'] + d * x['y'])
-                * u.math.exp(a * (x['z'] + x['x']))
-                + 2
-                * u.math.sin(a * x['z'] + d * x['x'])
-                * u.math.cos(a * x['y'] + d * x['z'])
-                * u.math.exp(a * (x['x'] + x['y']))
-            )
-            * u.math.exp(-2 * d ** 2 * x['t'])
+                -0.5
+                * a ** 2
+                * (
+                        u.math.exp(2 * a * x['x'])
+                        + u.math.exp(2 * a * x['y'])
+                        + u.math.exp(2 * a * x['z'])
+                        + 2
+                        * u.math.sin(a * x['x'] + d * x['y'])
+                        * u.math.cos(a * x['z'] + d * x['x'])
+                        * u.math.exp(a * (x['y'] + x['z']))
+                        + 2
+                        * u.math.sin(a * x['y'] + d * x['z'])
+                        * u.math.cos(a * x['x'] + d * x['y'])
+                        * u.math.exp(a * (x['z'] + x['x']))
+                        + 2
+                        * u.math.sin(a * x['z'] + d * x['x'])
+                        * u.math.cos(a * x['y'] + d * x['z'])
+                        * u.math.exp(a * (x['x'] + x['y']))
+                )
+                * u.math.exp(-2 * d ** 2 * x['t'])
         )
 
         r = {
@@ -353,14 +356,18 @@ def solve_problem_without_unit(scale: float = 1.0):
         'problem': problem,
         'unit': False,
         'n_point': num_domain + num_boundary + num_initial,
-        'n_train': 30000
+        'n_train': 15000
     }
 
 
 if __name__ == '__main__':
     evaluator.scaling_experiments(
-        'NS3d',
+        f'NS3d-f{bst.environ.get_precision()}',
         solve_with_unit=solve_problem_with_unit,
         solve_without_unit=solve_problem_without_unit,
-        scales=(0.01, 0.05, 0.1, 0.5, 1.0),
+        # scales=(0.05, 0.1, 0.4, 0.6, 1.2),
+        scales=(0.05, 0.1, 0.4, 0.6,),
+        # scales=(1.0,),
+        # scales=(0.05, 0.1, 0.4, ),
+        # scales=(1.2,),
     )

@@ -1,18 +1,23 @@
 import os
-
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+import sys
 
 import jax
+from numpy.random.tests.test_smoke import dtype
 
 jax.config.update('jax_cpu_enable_async_dispatch', False)
-jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 
 import brainstate as bst
 import brainunit as u
 import numpy as np
+import jax.numpy as jnp
 import pinnx
 
 import evaluator
+import brainstate as bst
+
+if len(sys.argv) > 1:
+    bst.environ.set(precision=(sys.argv[1]))
 
 
 def solve_problem_with_unit(scale: float = 1.0):
@@ -22,6 +27,8 @@ def solve_problem_with_unit(scale: float = 1.0):
 
     kf = bst.ParamState(0.05 * u.meter ** 6 / u.mole ** 2 / u.second)
     D = bst.ParamState(1.0 * u.meter ** 2 / u.second)
+    kf.value = u.math.asarray(kf.value, dtype=bst.environ.dftype())
+    D.value = u.math.asarray(D.value, dtype=bst.environ.dftype())
 
     def pde(x, y):
         jacobian = net.jacobian(x, x='t')
@@ -93,13 +100,16 @@ def solve_problem_with_unit(scale: float = 1.0):
         'n_point': num_domain + num_boundary + num_initial,
         'unit': True,
         'n_train': 15000,
-        'external_trainable_variables': [kf, D]
+        'external_trainable_variables': [kf, D],
+        'lr': 1e-4,
     }
 
 
 def solve_problem_without_unit(scale: float = 1.0):
     kf = bst.ParamState(0.05)
     D = bst.ParamState(1.0)
+    kf.value = u.math.asarray(kf.value, dtype=bst.environ.dftype())
+    D.value = u.math.asarray(D.value, dtype=bst.environ.dftype())
 
     def pde(x, y):
         jacobian = net.jacobian(x, x='t')
@@ -142,8 +152,10 @@ def solve_problem_without_unit(scale: float = 1.0):
         data = np.load("./dataset/reaction.npz")
         t, x, ca, cb = data["t"], data["x"], data["Ca"], data["Cb"]
         X, T = np.meshgrid(x, t)
-        x = {'x': X.flatten(), 't': T.flatten()}
-        y = {'ca': ca.flatten(), 'cb': cb.flatten()}
+        x = {'x': jnp.asarray(X.flatten(), dtype=bst.environ.dftype()),
+             't': jnp.asarray(T.flatten(), dtype=bst.environ.dftype())}
+        y = {'ca': jnp.asarray(ca.flatten(), dtype=bst.environ.dftype()),
+             'cb': jnp.asarray(cb.flatten(), dtype=bst.environ.dftype())}
         return x, y
 
     observe_x, observe_y = gen_traindata()
@@ -171,15 +183,17 @@ def solve_problem_without_unit(scale: float = 1.0):
         'n_point': num_domain + num_boundary + num_initial,
         'unit': True,
         'n_train': 15000,
-        'external_trainable_variables': [kf, D]
+        'external_trainable_variables': [kf, D],
+        'lr': 1e-4,
     }
 
 
 if __name__ == '__main__':
     evaluator.scaling_experiments(
-        'diffusion_2d',
+        f'diffusion_2d-f{bst.environ.get_precision()}',
         solve_with_unit=solve_problem_with_unit,
         solve_without_unit=solve_problem_without_unit,
         scales=(1.0, 2.0, 5.0, 10.0),
+        # scales=(1.0, ),
         # num_exp=10
     )

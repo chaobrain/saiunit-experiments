@@ -20,7 +20,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
 
 import jax
 
-jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 
 import braintools
 import brainunit as u
@@ -50,8 +50,8 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
 
     @bst.compile.jit
     def run_with_unit():
-        bst.nn.reset_all_states(model_with_unit)
         with bst.environ.context(dt=0.1 * u.ms):
+            bst.nn.init_all_states(model_with_unit)
             bst.compile.for_loop(model_with_unit.step_run2,
                                  run_indices,
                                  bg_inputs,
@@ -60,8 +60,8 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
 
     @bst.compile.jit
     def run_without_unit():
-        bst.nn.reset_all_states(model_without_unit)
         with bst.environ.context(dt=0.1):
+            bst.nn.init_all_states(model_without_unit)
             bst.compile.for_loop(model_without_unit.step_run2,
                                  run_indices,
                                  u.get_mantissa(bg_inputs),
@@ -91,7 +91,7 @@ def evaluate_compilation_times(scale: float = 1.0, n_run: int = 10):
 def with_scales():
     heads = ['n', 'unit_or_not', 'time']
     results = []
-    for scale in [1., 5., 10., 50., 100.]:
+    for scale in [0.1, 0.2, 0.5, 1.0, 2.0]:
         results.extend(evaluate_compilation_times(scale=scale))
 
         platform = jax.default_backend()
