@@ -38,7 +38,7 @@ def astype(x):
 ureg = pint.UnitRegistry()
 unit_of_x = ureg.meter / ureg.second
 unit_of_y = ureg.kelvin
-unit_of_z = ureg.kelvin / ureg.meter
+unit_of_z = ureg.kelvin
 # unit_of_t = ureg.msecond
 unit_of_t = ureg.second
 

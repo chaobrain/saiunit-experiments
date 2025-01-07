@@ -38,7 +38,7 @@ def astype(x):
 
 unit_of_x = u.meter / u.second
 unit_of_y = u.kelvin
-unit_of_z = u.kelvin / u.meter
+unit_of_z = u.kelvin
 unit_of_t = u.msecond
 unit_of_t = u.second
 
