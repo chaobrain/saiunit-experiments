@@ -14,13 +14,12 @@
 # ==============================================================================
 
 
+import brainstate as bst
 import braintools
 import brainunit as u
 import matplotlib.pyplot as plt
 import numpy as np
 
-import brainstate as bst
-bst.environ.set(precision='bf16')
 from _large_scale_COBA_EI_net_with_unit import create_model as create_model_with_units, area_names, num_exc
 from _large_scale_COBA_EI_net_without_unit import create_model as create_model_without_units
 
@@ -38,18 +37,18 @@ def try_large_scale_system(scale: float = 1.0):
         run_indices = np.arange(v1_inputs.size)
 
         # simulation with physical units
-        # bst.random.seed(0)
         model_with_unit = create_model_with_units(g_max, scale=scale)
+        bst.nn.init_all_states(model_with_unit)
         outs_with_unit = bst.compile.for_loop(model_with_unit.step_run,
                                               run_indices,
                                               bg_inputs,
                                               v1_inputs,
                                               pbar=bst.compile.ProgressBar(100))
 
-    # simulation without physical units
+    # simulation without physical units/
     with bst.environ.context(dt=0.1):
-        # bst.random.seed(0)
         model_without_unit = create_model_without_units(g_max.mantissa, scale=scale)
+        bst.nn.init_all_states(model_without_unit)
         outs_without_unit = bst.compile.for_loop(model_without_unit.step_run,
                                                  run_indices,
                                                  u.get_mantissa(bg_inputs),
@@ -72,6 +71,8 @@ def try_large_scale_system(scale: float = 1.0):
         plt.plot(times_, indices, '.', markersize=5, rasterized=True)
         plt.yticks(np.arange(len(area_names)) * num_exc + num_exc / 2, area_names)
         plt.ylim(0, len(area_names) * num_exc)
+        for i in range(len(area_names)):
+            plt.axhline(i * num_exc, color='gray', linestyle='--', linewidth=0.5)
         plt.xlabel('Time [ms]')
         if title:
             plt.title(title)

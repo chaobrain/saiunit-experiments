@@ -13,14 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import Optional, Callable
+
+import brainstate as bst
 import braintools
 import brainunit as u
 import jax
 import numpy as np
-import time
-from typing import Optional, Callable
 
-import brainstate as bst
+import brainevent.nn
 
 area_names = [
     'V1', 'V2', 'V4', 'DP', 'MT', '8m', '5', '8l', 'TEO', '2', 'F1',
@@ -34,16 +35,16 @@ num_inh = 800
 
 class LifRefLTC(bst.nn.Neuron):
     def __init__(
-            self,
-            size: bst.typing.Size,
-            name: Optional[str] = None,
-            V_rest: bst.typing.ArrayLike = 0. * u.mV,
-            V_reset: bst.typing.ArrayLike = -5. * u.mV,
-            V_th: bst.typing.ArrayLike = 20. * u.mV,
-            R: bst.typing.ArrayLike = 1. * u.ohm,
-            tau: bst.typing.ArrayLike = 10. * u.ms,
-            V_initializer: Callable = bst.init.Constant(0. * u.mV),
-            tau_ref: bst.typing.ArrayLike = 0. * u.ms,
+        self,
+        size: bst.typing.Size,
+        name: Optional[str] = None,
+        V_rest: bst.typing.ArrayLike = 0. * u.mV,
+        V_reset: bst.typing.ArrayLike = -5. * u.mV,
+        V_th: bst.typing.ArrayLike = 20. * u.mV,
+        R: bst.typing.ArrayLike = 1. * u.ohm,
+        tau: bst.typing.ArrayLike = 10. * u.ms,
+        V_initializer: Callable = bst.init.Constant(0. * u.mV),
+        tau_ref: bst.typing.ArrayLike = 0. * u.ms,
     ):
         # initialization
         super().__init__(size, name=name, )
@@ -89,8 +90,6 @@ class LifRefLTC(bst.nn.Neuron):
 def pop_expon_syn(pre, post, delay, prob, g_max, tau):
     with jax.ensure_compile_time_eval():
         has_delay = (delay is None) or (delay < bst.environ.get_dt())
-    if bst.environ.get('precision') == 'bf16':
-        g_max = u.math.asarray(g_max, dtype=np.float32)
     return bst.nn.AlignPostProj(
         (
             pre.prefetch('spike')
@@ -98,7 +97,7 @@ def pop_expon_syn(pre, post, delay, prob, g_max, tau):
             pre.prefetch('spike').delay.at(delay)
         ),
         lambda x: x != 0.,
-        comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
+        comm=brainevent.nn.FixedProb(pre.in_size, post.in_size, prob, g_max),
         syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit(unit=u.siemens)),
         out=bst.nn.CUBA.desc(scale=u.mV),
         post=post,
@@ -111,15 +110,14 @@ def area_expon_syns(pre, post, delay, prob, gEE=0.03 * u.siemens, tau=5. * u.ms)
 
 class EINet(bst.nn.Module):
     def __init__(
-            self,
-            num_E,
-            num_I,
-            gEE=0.03 * u.siemens,
-            gEI=0.03 * u.siemens,
-            gIE=0.335 * u.siemens,
-            gII=0.335 * u.siemens,
-            p=0.2,
-            separate_ei: bool = False
+        self,
+        num_E,
+        num_I,
+        gEE=0.03 * u.siemens,
+        gEI=0.03 * u.siemens,
+        gIE=0.335 * u.siemens,
+        gII=0.335 * u.siemens,
+        p=0.2,
     ):
         super().__init__()
         self.E = LifRefLTC(
@@ -184,20 +182,19 @@ class EINet(bst.nn.Module):
 
 class VisualSystem(bst.nn.Module):
     def __init__(
-            self,
-            ne: int,
-            ni: int,
-            scale: float,
-            conn_prob_mat: np.ndarray,
-            delay_mat: np.ndarray,
-            area_names: list[str],
-            p: float = 0.1,
-            gEE=0.03 * u.siemens,
-            gEI=0.03 * u.siemens,
-            gIE=0.335 * u.siemens,
-            gII=0.335 * u.siemens,
-            muEE=.0375 * u.siemens,
-            mon_current=False
+        self,
+        ne: int,
+        ni: int,
+        scale: float,
+        conn_prob_mat: np.ndarray,
+        delay_mat: np.ndarray,
+        area_names: list[str],
+        p: float = 0.1,
+        gEE=0.03 * u.siemens,
+        gEI=0.03 * u.siemens,
+        gIE=0.335 * u.siemens,
+        gII=0.335 * u.siemens,
+        muEE=.0375 * u.siemens,
     ):
         super().__init__()
         num_area = conn_prob_mat.shape[0]
@@ -216,7 +213,6 @@ class VisualSystem(bst.nn.Module):
                 gII=gII,
                 gIE=gIE,
                 p=p,
-                separate_ei=mon_current,
             )
 
         # projections
@@ -233,8 +229,6 @@ class VisualSystem(bst.nn.Module):
                         gEE=muEE,
                     )
                     self.projections[f'{pre}-to-{post}'] = proj
-
-        self.mon_current = mon_current
 
     def update(self, bg, v1_bg):
         # call all projections, generating synaptic currents
@@ -263,7 +257,7 @@ class VisualSystem(bst.nn.Module):
             self.update(*args)
 
 
-def create_model(g_max, scale: float = 1.0, mon_current: bool = False):
+def create_model(g_max, scale: float = 1.0):
     with jax.ensure_compile_time_eval():
         # fraction of labeled neurons
         flnMatp = braintools.file.load_matfile('../fig3-mutiscale-brain-network/Joglekar_2018_data/efelenMatpython.mat')
@@ -291,6 +285,5 @@ def create_model(g_max, scale: float = 1.0, mon_current: bool = False):
         gII=g_max[3],
         muEE=g_max[4],
         p=0.1,
-        mon_current=mon_current,
     )
     return model

@@ -1,88 +1,50 @@
-# Experiments and Evaluations for `BrainUnit`
+# Experiments and Evaluations for `SAIUnit`
 
-This repository contains code and experiments for evaluating the [BrainUnit](https://github.com/chaoming0625/brainunit) framework. The experiments focus on training and visualizing neural network models.
+This repository contains code and experiments for evaluating the [SAIUnit](https://github.com/chaobrain/saiunit) framework. The experiments focus on training and visualizing neural network models.
 
-## Table of Contents
 
-- [Installation](#installation)
-- [Project Structure](#project-structure)
-- [Usage](#usage)
-- [Contributing](#contributing)
 
 ## Installation
 
-To install the required dependencies, use `pip`:
+To install the required packages, run the following command:
 
 ```bash
 pip install -r requirements.txt
 ```
 
 
-## Project Structure
+## fig3-diffrax and fig4-pde-simulation
 
-```
-├── 01-hh-neurons/
-├── 02-mutiscale-network/
-│   └── results/
-├── 03-hh-fitting/
-├── 04-task-training/
-│   ├── results/
-│   ├── task_training.py
-│   └── verification.py
-├── archive/
-├── .gitignore
-├── README.md
-└── requirements.txt
-```
-
-- `01-hh-neurons/`: Contains experiments related to simulating Hodgkin-Huxley-styled TRN neurons.
-- `02-mutiscale-network/`: Contains results related to multiscale network experiments.
-- `03-hh-fitting/`: Contains experiments related to fitting Hodgkin-Huxley models.
-- `04-task-training/`: Contains the main training script and results for training evidence accumulation tasks.
-- `.gitignore`: Specifies files and directories to be ignored by Git.
-- `README.md`: This file.
-- `requirements.txt`: Lists the dependencies required for the project.
-
-## Usage
-
-
-For the Hodgkin-Huxley neuron experiments, defined in ``01-hh-neurons/`` directory, to run the script, execute:
+For the `Fig3-diffrax` and `fig4-pde-simulation` experiment, we should first install the [unit-aware diffrax](https://github.com/chaoming0625/diffrax) first, please run the following command:
 
 ```bash
-python dendritex-sim.py
-```
+pip install git+https://github.com/chaoming0625/diffrax.git
 
-For the multiscale spiking network experiments, defined in ``02-multiscale-network/`` directory, to run the script, execute:
-
-```bash
-python large_scale_COBA_EI-bst.py  # with physical units
-python large_scale_COBA_EI-bp.py  # without physical units
-```
-
-For the Hodgkin-Huxley model fitting experiments, defined in ``03-hh-fitting/`` directory, to run the script, execute:
-
-```bash 
-python brian2_hh_fitting.py  # fitting with brian2
-python neuron_fitting_of_hh_model.py  # fitting with dendritex
+python xxxx.py
 ```
 
 
-For the cognitive task training task, defined in ``04-task-training/`` directory, to run the training script, execute:
 
-```bash
-python task_training.py
-```
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
 
 
 ## Citation
 
 If you use this code in your research, please consider citing the following paper:
 
-```
+```bibtex
+@article {Wang2024brainunit,
+     author = {Wang, Chaoming and He, Sichao and Luo, Shouwei and Huan, Yuxiang and Wu, Si},
+     title = {BrainUnit: Integrating Physical Units into High-Performance AI-Driven Scientific Computing},
+     elocation-id = {2024.09.20.614111},
+     year = {2024},
+     doi = {10.1101/2024.09.20.614111},
+     publisher = {Cold Spring Harbor Laboratory},
+     abstract = {Artificial intelligence (AI) is revolutionizing scientific research across various disciplines. The foundation of scientific research lies in rigorous scientific computing based on standardized physical units. However, current mainstream high-performance numerical computing libraries for AI generally lack native support for physical units, significantly impeding the integration of AI methodologies into scientific research. To fill this gap, we introduce BrainUnit, a unit system designed to seamlessly integrate physical units into AI libraries, with a focus on compatibility with JAX. BrainUnit offers a comprehensive library of over 2000 physical units and more than 300 unit-aware mathematical functions. It is fully compatible with JAX transformations, allowing for automatic differentiation, just-in-time compilation, vectorization, and parallelization while maintaining unit consistency. We demonstrate BrainUnit{\textquoteright}s efficacy through several use cases in brain dynamics modeling, including detailed biophysical neuron simulations, multiscale brain network modeling, neuronal activity fitting, and cognitive task training. Our results show that BrainUnit enhances the accuracy, reliability, and interpretability of scientific computations across scales, from ion channels to whole-brain networks, without significantly impacting performance. By bridging the gap between abstract computational frameworks and physical units, BrainUnit represents a crucial step towards more robust and physically grounded AI-driven scientific computing.Competing Interest StatementThe authors have declared no competing interest.},
+     URL = {https://www.biorxiv.org/content/early/2024/09/22/2024.09.20.614111},
+     eprint = {https://www.biorxiv.org/content/early/2024/09/22/2024.09.20.614111.full.pdf},
+     journal = {bioRxiv}
+}
+
 ```
 
 

@@ -13,15 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-import time
 from typing import Optional, Callable
 
 import brainstate as bst
 import braintools
 import brainunit as u
 import jax
-import matplotlib.pyplot as plt
 import numpy as np
+
+import brainevent.nn
 
 area_names = [
     'V1', 'V2', 'V4', 'DP', 'MT', '8m', '5', '8l', 'TEO', '2', 'F1',
@@ -35,16 +35,16 @@ num_inh = 800
 
 class LifRefLTC(bst.nn.Neuron):
     def __init__(
-            self,
-            size: bst.typing.Size,
-            name: Optional[str] = None,
-            V_rest: bst.typing.ArrayLike = 0.,
-            V_reset: bst.typing.ArrayLike = -5.,
-            V_th: bst.typing.ArrayLike = 20.,
-            R: bst.typing.ArrayLike = 1.,
-            tau: bst.typing.ArrayLike = 10.,
-            V_initializer: Callable = bst.init.Constant(0.),
-            tau_ref: bst.typing.ArrayLike = 0.,
+        self,
+        size: bst.typing.Size,
+        name: Optional[str] = None,
+        V_rest: bst.typing.ArrayLike = 0.,
+        V_reset: bst.typing.ArrayLike = -5.,
+        V_th: bst.typing.ArrayLike = 20.,
+        R: bst.typing.ArrayLike = 1.,
+        tau: bst.typing.ArrayLike = 10.,
+        V_initializer: Callable = bst.init.Constant(0.),
+        tau_ref: bst.typing.ArrayLike = 0.,
     ):
         # initialization
         super().__init__(size, name=name, )
@@ -86,16 +86,16 @@ class LifRefLTC(bst.nn.Neuron):
 
 
 def pop_expon_syn(pre, post, delay, prob, g_max, tau):
-    if bst.environ.get('precision') == 'bf16':
-        g_max = u.math.asarray(g_max, dtype=np.float32)
+    with jax.ensure_compile_time_eval():
+        has_delay = (delay is None) or (delay < bst.environ.get_dt())
     return bst.nn.AlignPostProj(
         (
             pre.prefetch('spike')
-            if (delay is None) or (delay < bst.environ.get_dt()) else
+            if has_delay else
             pre.prefetch('spike').delay.at(delay)
         ),
         lambda x: x != 0.,
-        comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
+        comm=brainevent.nn.FixedProb(pre.in_size, post.in_size, prob, g_max),
         syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit()),
         out=bst.nn.CUBA.desc(scale=1.),
         post=post
@@ -108,14 +108,14 @@ def area_expon_syns(pre, post, delay, prob, gEE=0.03, tau=5.):
 
 class EINet(bst.nn.Module):
     def __init__(
-            self,
-            num_E,
-            num_I,
-            gEE=0.03,
-            gEI=0.03,
-            gIE=0.335,
-            gII=0.335,
-            p=0.2
+        self,
+        num_E,
+        num_I,
+        gEE=0.03,
+        gEI=0.03,
+        gIE=0.335,
+        gII=0.335,
+        p=0.2
     ):
         super().__init__()
         self.E = LifRefLTC(
@@ -152,25 +152,27 @@ class EINet(bst.nn.Module):
 
 class VisualSystem(bst.nn.Module):
     def __init__(
-            self,
-            ne: int,
-            ni: int,
-            scale: float,
-            conn_prob_mat: np.ndarray,
-            delay_mat: np.ndarray,
-            area_names: list[str],
-            p: float = 0.1,
-            gEE=0.03,
-            gEI=0.03,
-            gIE=0.335,
-            gII=0.335,
-            muEE=.0375
+        self,
+        ne: int,
+        ni: int,
+        scale: float,
+        conn_prob_mat: np.ndarray,
+        delay_mat: np.ndarray,
+        area_names: list[str],
+        p: float = 0.1,
+        gEE=0.03,
+        gEI=0.03,
+        gIE=0.335,
+        gII=0.335,
+        muEE=.0375
     ):
         super().__init__()
         num_area = conn_prob_mat.shape[0]
         ne = int(ne * scale)
         ni = int(ni * scale)
         self.num = (ne + ni) * num_area
+        self.num_pop = num_area
+        self.pop_size = ne + ni
 
         # brain areas
         self.areas = []
@@ -219,18 +221,19 @@ class VisualSystem(bst.nn.Module):
 
 
 def create_model(g_max, scale: float = 1.0):
-    # fraction of labeled neurons
-    flnMatp = braintools.file.load_matfile('../fig3-mutiscale-brain-network/Joglekar_2018_data/efelenMatpython.mat')
-    conn = np.asarray(flnMatp['flnMatpython'].squeeze())  # fln values..Cij is strength from j to i
+    with jax.ensure_compile_time_eval():
+        # fraction of labeled neurons
+        flnMatp = braintools.file.load_matfile('../fig3-mutiscale-brain-network/Joglekar_2018_data/efelenMatpython.mat')
+        conn = np.asarray(flnMatp['flnMatpython'].squeeze())  # fln values..Cij is strength from j to i
 
-    # Distance
-    speed = 3.5  # axonal conduction velocity
-    distMatp = braintools.file.load_matfile('../fig3-mutiscale-brain-network/Joglekar_2018_data/subgraphWiring29.mat')
-    distMat = distMatp['wiring'].squeeze()  # distances between areas values..
-    delayMat = np.asarray(distMat / speed)
+        # Distance
+        speed = 3.5  # axonal conduction velocity
+        distMatp = braintools.file.load_matfile(
+            '../fig3-mutiscale-brain-network/Joglekar_2018_data/subgraphWiring29.mat')
+        distMat = distMatp['wiring'].squeeze()  # distances between areas values..
+        delayMat = np.asarray(distMat / speed)
 
     # construct the network model
-    print(g_max)
     g_max = g_max / scale
     model = VisualSystem(
         num_exc,

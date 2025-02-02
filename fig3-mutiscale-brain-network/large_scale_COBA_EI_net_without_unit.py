@@ -20,6 +20,7 @@ import brainstate as bst
 import braintools
 import brainunit as u
 import jax
+import brainevent.nn
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -92,7 +93,7 @@ def pop_expon_syn(pre, post, delay, prob, g_max, tau):
             if (delay is None) or (delay < bst.environ.get_dt()) else
             pre.prefetch('spike').delay.at(delay)
         ),
-        comm=bst.event.FixedProb(pre.in_size, post.in_size, prob, g_max),
+        comm=brainevent.nn.FixedProb(pre.in_size, post.in_size, prob, g_max),
         syn=bst.nn.Expon.desc(post.in_size, tau=tau, g_initializer=bst.init.ZeroInit()),
         out=bst.nn.CUBA.desc(scale=1.),
         post=post
