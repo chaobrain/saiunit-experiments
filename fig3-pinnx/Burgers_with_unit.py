@@ -53,7 +53,7 @@ trainer.saveplot(issave=True, isplot=True)
 
 
 def gen_testdata():
-    data = np.load("../dataset/Burgers.npz")
+    data = np.load("./Burgers.npz")
     t, x, exact = data["t"], data["x"], data["usol"].T
     xx, tt = np.meshgrid(x, t)
     X = {'x': np.ravel(xx) * u.meter, 't': np.ravel(tt) * u.second}
